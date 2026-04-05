@@ -135,6 +135,7 @@ class NodeService {
   /// Resolve the gateway auth token from available sources:
   /// 1. Manually entered token (for remote gateways)
   /// 2. Dashboard URL fragment (for local gateway)
+  /// 3. openclaw.json config file (source of truth — fallback when URL is stale or missing)
   Future<String?> _readGatewayToken() async {
     final prefs = PreferencesService();
     await prefs.init();
@@ -154,6 +155,24 @@ class NodeService {
         _log('[NODE] Gateway token extracted from dashboard URL');
         return tokenMatch.group(1);
       }
+    }
+
+    // 3. Read directly from openclaw.json — the source of truth (#94).
+    // This catches the case where dashboardUrl was cleared before a gateway
+    // restart (GatewayService.start() nulls it out) but the config file still
+    // holds the authoritative token, preventing token_missing reconnect loops.
+    try {
+      final raw = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+      if (raw != null) {
+        final config = jsonDecode(raw) as Map<String, dynamic>;
+        final token = config['gateway']?['auth']?['token'];
+        if (token is String && token.isNotEmpty) {
+          _log('[NODE] Gateway token read from openclaw.json config');
+          return token;
+        }
+      }
+    } catch (e) {
+      _log('[NODE] Could not read token from openclaw.json: $e');
     }
 
     _log('[NODE] No gateway token available');
@@ -256,6 +275,9 @@ class NodeService {
   }
 
   void _onConnected(NodeFrame frame) {
+    // Reset backoff only after a fully authenticated connection so that repeated
+    // auth failures (e.g. token_missing) still produce growing retry delays (#94).
+    _ws.resetReconnectAttempt();
     _updateState(_state.copyWith(
       status: NodeStatus.paired,
       connectedAt: DateTime.now(),

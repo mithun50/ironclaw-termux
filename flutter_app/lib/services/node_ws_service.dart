@@ -35,6 +35,11 @@ class NodeWsService {
     await _doConnect();
   }
 
+  /// Reset the reconnect backoff counter. Call this only once the gateway
+  /// has fully authenticated the connection (not just the TCP handshake),
+  /// so that repeated auth failures still produce a growing backoff delay.
+  void resetReconnectAttempt() => _reconnectAttempt = 0;
+
   Future<void> _doConnect() async {
     if (_url == null) return;
 
@@ -42,7 +47,6 @@ class NodeWsService {
       _channel = WebSocketChannel.connect(Uri.parse(_url!));
       await _channel!.ready;
       _connected = true;
-      _reconnectAttempt = 0;
       _lastActivity = DateTime.now();
 
       _startPing();
