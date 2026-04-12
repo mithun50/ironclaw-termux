@@ -85,7 +85,7 @@ jobs:
           ls -lh ironclaw-bins/
 
       - name: Upload binaries artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ironclaw-binaries
           path: ironclaw-bins/
@@ -246,14 +246,14 @@ jobs:
           ls -lh artifacts/
 
       - name: Upload APK artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ironclaw-apks
           path: artifacts/*.apk
           retention-days: 30
 
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ironclaw-aab
           path: artifacts/*.aab
