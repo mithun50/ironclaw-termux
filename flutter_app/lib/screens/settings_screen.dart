@@ -185,8 +185,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: const Icon(Icons.code),
                 ),
                 ListTile(
-                  title: const Text('OpenClaw'),
-                  subtitle: Text(_status['openclawInstalled'] == true
+                  title: const Text('IronClaw'),
+                  subtitle: Text(_status['ironclawInstalled'] == true
                       ? 'Installed'
                       : 'Not installed'),
                   leading: const Icon(Icons.cloud),
@@ -242,9 +242,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(),
                 _sectionHeader(theme, 'ABOUT'),
                 const ListTile(
-                  title: Text('OpenClaw'),
+                  title: Text('IronClaw'),
                   subtitle: Text(
-                    'AI Gateway for Android\nVersion ${AppConstants.version}',
+                    'AI Agent for Android\nVersion ${AppConstants.version}',
                   ),
                   leading: Icon(Icons.info_outline),
                   isThreeLine: true,
@@ -268,7 +268,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('GitHub'),
-                  subtitle: const Text('mithun50/openclaw-termux'),
+                  subtitle: const Text('mithun50/ironclaw-termux'),
                   leading: const Icon(Icons.code),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -344,20 +344,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await downloadDir.exists()) {
         await downloadDir.create(recursive: true);
       }
-      return '$sdcard/Download/openclaw-snapshot.json';
+      return '$sdcard/Download/ironclaw-snapshot.json';
     }
     // Fallback to app-private directory
     final dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/openclaw-snapshot.json';
+    return '${dir.path}/ironclaw-snapshot.json';
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final openclawJson = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+      final ironclawYaml = await NativeBridge.readRootfsFile('root/.ironclaw/ironclaw.yaml');
       final snapshot = {
         'version': AppConstants.version,
         'timestamp': DateTime.now().toIso8601String(),
-        'openclawConfig': openclawJson,
+        'ironclawConfig': ironclawYaml,
         'dashboardUrl': _prefs.dashboardUrl,
         'autoStart': _prefs.autoStartGateway,
         'nodeEnabled': _prefs.nodeEnabled,
@@ -399,10 +399,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final content = await file.readAsString();
       final snapshot = jsonDecode(content) as Map<String, dynamic>;
 
-      // Restore openclaw.json into rootfs
-      final openclawConfig = snapshot['openclawConfig'] as String?;
-      if (openclawConfig != null) {
-        await NativeBridge.writeRootfsFile('root/.openclaw/openclaw.json', openclawConfig);
+      // Restore ironclaw.yaml into rootfs
+      final ironclawConfig = snapshot['ironclawConfig'] as String?;
+      if (ironclawConfig != null) {
+        await NativeBridge.writeRootfsFile('root/.ironclaw/ironclaw.yaml', ironclawConfig);
       }
 
       // Restore preferences

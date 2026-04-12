@@ -1,4 +1,4 @@
-package com.nxg.openclawproot
+package com.nxg.ironclawproot
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,16 +11,14 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 
-class SetupService : Service() {
+class TerminalSessionService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_setup"
-        const val NOTIFICATION_ID = 4
+        const val NOTIFICATION_ID = 2
         var isRunning = false
             private set
-        private var instance: SetupService? = null
 
         fun start(context: Context) {
-            val intent = Intent(context, SetupService::class.java)
+            val intent = Intent(context, TerminalSessionService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -29,12 +27,8 @@ class SetupService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, SetupService::class.java)
+            val intent = Intent(context, TerminalSessionService::class.java)
             context.stopService(intent)
-        }
-
-        fun updateNotification(text: String, progress: Int = -1) {
-            instance?.updateNotificationWith(text, progress)
         }
     }
 
@@ -48,19 +42,17 @@ class SetupService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification("Setting up environment...", -1))
+        startForeground(NOTIFICATION_ID, buildNotification())
         if (isRunning) {
             return START_STICKY
         }
         isRunning = true
-        instance = this
         acquireWakeLock()
         return START_STICKY
     }
 
     override fun onDestroy() {
         isRunning = false
-        instance = null
         releaseWakeLock()
         super.onDestroy()
     }
@@ -70,9 +62,9 @@ class SetupService : Service() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "OpenClaw::SetupWakeLock"
+            "IronClaw::TerminalWakeLock"
         )
-        wakeLock?.acquire(60 * 60 * 1000L) // 1 hour max
+        wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24 hours max
     }
 
     private fun releaseWakeLock() {
@@ -85,54 +77,41 @@ class SetupService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "OpenClaw Setup",
+                GatewayService.CHANNEL_ID,
+                "IronClaw Gateway",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows progress during OpenClaw environment setup"
+                description = "Keeps the IronClaw gateway running in the background"
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
     }
 
-    /**
-     * Build notification with optional progress bar.
-     * @param progress 0-100 for determinate bar, -1 for indeterminate spinner
-     */
-    private fun buildNotification(text: String, progress: Int): Notification {
+    private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, GatewayService.CHANNEL_ID)
+                .setContentTitle("IronClaw Terminal")
+                .setContentText("Terminal session active")
+                .setSmallIcon(android.R.drawable.ic_menu_manage)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
+                .setContentTitle("IronClaw Terminal")
+                .setContentText("Terminal session active")
+                .setSmallIcon(android.R.drawable.ic_menu_manage)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build()
         }
-
-        builder.setContentTitle("OpenClaw Setup")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-
-        if (progress in 0..100) {
-            builder.setProgress(100, progress, false)
-        } else {
-            builder.setProgress(0, 0, true)
-        }
-
-        return builder.build()
-    }
-
-    fun updateNotificationWith(text: String, progress: Int) {
-        try {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.notify(NOTIFICATION_ID, buildNotification(text, progress))
-        } catch (_: Exception) {}
     }
 }

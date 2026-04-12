@@ -1,12 +1,12 @@
 {
-  "name": "openclaw-termux",
+  "name": "ironclaw-termux",
   "version": "1.8.7",
-  "description": "OpenClaw AI Gateway for Android Termux with Bionic Bypass",
+  "description": "IronClaw AI Agent Framework for Android Termux — Zero Trust, secure-by-default",
   "main": "lib/index.js",
   "type": "module",
   "bin": {
-    "openclawx": "bin/openclawx",
-    "openclawx-setup": "bin/openclawx"
+    "ironclawx": "bin/ironclawx",
+    "ironclawx-setup": "bin/ironclawx"
   },
   "scripts": {
     "test": "node lib/test.js",
@@ -15,11 +15,14 @@
     "postinstall": "node lib/postinstall.js"
   },
   "keywords": [
-    "openclaw",
+    "ironclaw",
     "termux",
     "android",
     "ai",
-    "gateway",
+    "agent",
+    "zero-trust",
+    "security",
+    "rust",
     "gemini",
     "claude"
   ],
@@ -27,11 +30,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mithun50/openclaw-termux.git"
+    "url": "git+https://github.com/mithun50/ironclaw-termux.git"
   },
-  "homepage": "https://github.com/mithun50/openclaw-termux#readme",
+  "homepage": "https://github.com/mithun50/ironclaw-termux#readme",
   "bugs": {
-    "url": "https://github.com/mithun50/openclaw-termux/issues"
+    "url": "https://github.com/mithun50/ironclaw-termux/issues"
   },
   "engines": {
     "node": ">=22.0.0"

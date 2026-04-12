@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Metadata for an AI model provider that can be configured
-/// to power the OpenClaw gateway.
+/// to power the IronClaw agent.
 class AiProvider {
   final String id;
   final String name;
@@ -11,6 +11,10 @@ class AiProvider {
   final String baseUrl;
   final List<String> defaultModels;
   final String apiKeyHint;
+  /// IronClaw provider ID (matches `--provider <id>` CLI flag).
+  final String ironclawId;
+  /// Environment variable name for this provider's API key.
+  final String envVarName;
 
   const AiProvider({
     required this.id,
@@ -21,6 +25,8 @@ class AiProvider {
     required this.baseUrl,
     required this.defaultModels,
     required this.apiKeyHint,
+    required this.ironclawId,
+    required this.envVarName,
   });
 
   static const anthropic = AiProvider(
@@ -31,28 +37,32 @@ class AiProvider {
     color: Color(0xFFD97706),
     baseUrl: 'https://api.anthropic.com/v1',
     defaultModels: [
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-5-20250514',
       'claude-opus-4-20250514',
-      'claude-haiku-4-20250506',
+      'claude-haiku-4-5-20251001',
     ],
     apiKeyHint: 'sk-ant-...',
+    ironclawId: 'anthropic',
+    envVarName: 'ANTHROPIC_API_KEY',
   );
 
   static const openai = AiProvider(
     id: 'openai',
     name: 'OpenAI',
-    description: 'GPT and o-series models',
+    description: 'GPT-4.1 and o-series models',
     icon: Icons.auto_awesome,
     color: Color(0xFF10A37F),
     baseUrl: 'https://api.openai.com/v1',
     defaultModels: [
+      'gpt-4.1',
+      'gpt-4.1-mini',
       'gpt-4o',
-      'gpt-4o-mini',
       'o1',
       'o1-mini',
-      'gpt-4-turbo',
     ],
     apiKeyHint: 'sk-...',
+    ironclawId: 'openai',
+    envVarName: 'OPENAI_API_KEY',
   );
 
   static const google = AiProvider(
@@ -63,51 +73,55 @@ class AiProvider {
     color: Color(0xFF4285F4),
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     defaultModels: [
-      'gemini-2.5-pro',
       'gemini-2.5-flash',
+      'gemini-2.5-pro',
       'gemini-2.0-flash',
       'gemini-1.5-pro',
     ],
     apiKeyHint: 'AIza...',
+    ironclawId: 'google',
+    envVarName: 'GOOGLE_API_KEY',
   );
 
   static const openrouter = AiProvider(
     id: 'openrouter',
     name: 'OpenRouter',
-    description: 'Unified API for hundreds of models',
+    description: 'Unified API for 100+ models from all providers',
     icon: Icons.route,
     color: Color(0xFF6366F1),
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModels: [
-      'anthropic/claude-sonnet-4',
-      'openai/gpt-4o',
+      'anthropic/claude-sonnet-4-5',
+      'openai/gpt-4.1',
       'google/gemini-2.5-pro',
-      'meta-llama/llama-3.1-405b-instruct',
+      'meta-llama/llama-3.3-70b-instruct',
     ],
     apiKeyHint: 'sk-or-...',
+    ironclawId: 'openrouter',
+    envVarName: 'OPENROUTER_API_KEY',
   );
 
-  static const nvidia = AiProvider(
-    id: 'nvidia',
-    name: 'NVIDIA NIM',
-    description: 'GPU-optimized inference endpoints',
-    icon: Icons.memory,
-    color: Color(0xFF76B900),
-    baseUrl: 'https://integrate.api.nvidia.com/v1',
+  static const groq = AiProvider(
+    id: 'groq',
+    name: 'Groq',
+    description: 'Ultra-fast inference — preset: fast',
+    icon: Icons.flash_on,
+    color: Color(0xFFF97316),
+    baseUrl: 'https://api.groq.com/openai/v1',
     defaultModels: [
-      'meta/llama-3.1-405b-instruct',
-      'meta/llama-3.1-70b-instruct',
-      'meta/llama-3.3-70b-instruct',
-      'nvidia/nemotron-4-340b-instruct',
-      'deepseek-ai/deepseek-r1',
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'mixtral-8x7b-32768',
     ],
-    apiKeyHint: 'nvapi-...',
+    apiKeyHint: 'gsk_...',
+    ironclawId: 'groq',
+    envVarName: 'GROQ_API_KEY',
   );
 
   static const deepseek = AiProvider(
     id: 'deepseek',
     name: 'DeepSeek',
-    description: 'High-performance open models',
+    description: 'High-performance open models — preset: cheap',
     icon: Icons.explore,
     color: Color(0xFF0EA5E9),
     baseUrl: 'https://api.deepseek.com/v1',
@@ -116,6 +130,25 @@ class AiProvider {
       'deepseek-reasoner',
     ],
     apiKeyHint: 'sk-...',
+    ironclawId: 'deepseek',
+    envVarName: 'DEEPSEEK_API_KEY',
+  );
+
+  static const mistral = AiProvider(
+    id: 'mistral',
+    name: 'Mistral',
+    description: 'European open-weight models',
+    icon: Icons.air,
+    color: Color(0xFF7C3AED),
+    baseUrl: 'https://api.mistral.ai/v1',
+    defaultModels: [
+      'mistral-large-latest',
+      'mistral-medium-latest',
+      'mistral-small-latest',
+    ],
+    apiKeyHint: 'your-mistral-key',
+    ironclawId: 'mistral',
+    envVarName: 'MISTRAL_API_KEY',
   );
 
   static const xai = AiProvider(
@@ -131,8 +164,27 @@ class AiProvider {
       'grok-2',
     ],
     apiKeyHint: 'xai-...',
+    ironclawId: 'xai',
+    envVarName: 'XAI_API_KEY',
+  );
+
+  static const nvidia = AiProvider(
+    id: 'nvidia',
+    name: 'NVIDIA NIM',
+    description: 'GPU-optimized inference endpoints',
+    icon: Icons.memory,
+    color: Color(0xFF76B900),
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModels: [
+      'meta/llama-3.1-405b-instruct',
+      'meta/llama-3.3-70b-instruct',
+      'deepseek-ai/deepseek-r1',
+    ],
+    apiKeyHint: 'nvapi-...',
+    ironclawId: 'nvidia',
+    envVarName: 'NVIDIA_API_KEY',
   );
 
   /// All available AI providers.
-  static const all = [anthropic, openai, google, openrouter, nvidia, deepseek, xai];
+  static const all = [anthropic, openai, google, groq, deepseek, mistral, openrouter, xai, nvidia];
 }

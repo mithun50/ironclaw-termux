@@ -1,4 +1,4 @@
-package com.nxg.openclawproot
+package com.nxg.ironclawproot
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -21,7 +21,7 @@ import java.net.Socket
 
 class GatewayService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_gateway"
+        const val CHANNEL_ID = "IronClaw_gateway"
         const val NOTIFICATION_ID = 1
         var isRunning = false
             private set
@@ -106,7 +106,7 @@ class GatewayService : Service() {
     }
 
     /** Check if gateway port is already in use (another instance running). */
-    private fun isPortInUse(port: Int = 18789): Boolean {
+    private fun isPortInUse(port: Int = 3000): Boolean {
         return try {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress("127.0.0.1", port), 1000)
@@ -132,7 +132,7 @@ class GatewayService : Service() {
                 // Check if an existing gateway is already listening on the port.
                 // Moved inside thread to avoid blocking the main thread (#60).
                 if (isPortInUse()) {
-                    emitLog("[INFO] Gateway already running on port 18789, adopting existing instance")
+                    emitLog("[INFO] Gateway already running on port 3000, adopting existing instance")
                     updateNotificationRunning()
                     startUptimeTicker()
                     startWatchdog()
@@ -187,7 +187,7 @@ class GatewayService : Service() {
                 // Final check right before launch — another instance may have
                 // started between the first check and now
                 if (isPortInUse()) {
-                    emitLog("Gateway already running on port 18789, skipping launch")
+                    emitLog("Gateway already running on port 3000, skipping launch")
                     updateNotificationRunning()
                     startUptimeTicker()
                     startWatchdog()
@@ -198,7 +198,7 @@ class GatewayService : Service() {
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = pm.startProotProcess("openclaw gateway --verbose")
+                    gatewayProcess = pm.startProotProcess("IronClaw gateway --verbose")
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")
@@ -291,7 +291,7 @@ class GatewayService : Service() {
         }
         emitLog("Gateway stopped by user")
         // Gracefully terminate proot via SIGTERM first, allowing its --kill-on-exit
-        // handler to kill child processes (node.js / openclaw daemon) before proot
+        // handler to kill child processes (node.js / IronClaw daemon) before proot
         // exits.  destroyForcibly() (SIGKILL) bypasses proot's exit handler, which
         // can leave the gateway daemon alive even after proot is killed.
         procToStop?.let { proc ->
@@ -328,7 +328,7 @@ class GatewayService : Service() {
                     }
                     // Also check if port is still responding after initial startup
                     if (proc != null && !isPortInUse()) {
-                        emitLog("[WARN] Watchdog: port 18789 not responding")
+                        emitLog("[WARN] Watchdog: port 3000 not responding")
                     }
                     Thread.sleep(15_000) // Check every 15s
                 }
@@ -363,7 +363,7 @@ class GatewayService : Service() {
     }
 
     private fun updateNotificationRunning() {
-        updateNotification("Running on port 18789 \u2022 ${formatUptime()}")
+        updateNotification("Running on port 3000 \u2022 ${formatUptime()}")
     }
 
     /** Emit a log message to the Flutter EventChannel.
@@ -385,7 +385,7 @@ class GatewayService : Service() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "OpenClaw::GatewayWakeLock"
+            "IronClaw::GatewayWakeLock"
         )
         wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24 hours max
     }
@@ -401,10 +401,10 @@ class GatewayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "OpenClaw Gateway",
+                "IronClaw Gateway",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps the OpenClaw gateway running in the background"
+                description = "Keeps the IronClaw gateway running in the background"
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
@@ -425,7 +425,7 @@ class GatewayService : Service() {
             Notification.Builder(this)
         }
 
-        builder.setContentTitle("OpenClaw Gateway")
+        builder.setContentTitle("IronClaw Gateway")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)

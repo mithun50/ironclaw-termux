@@ -1,18 +1,18 @@
 class AppConstants {
-  static const String appName = 'OpenClaw';
+  static const String appName = 'IronClaw';
   static const String version = '1.8.7';
-  static const String packageName = 'com.nxg.openclawproot';
+  static const String packageName = 'com.nxg.ironclawproot';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
   static final ansiEscape = RegExp(r'\x1b\[[0-9;]*[a-zA-Z]');
 
   static const String authorName = 'Mithun Gowda B';
   static const String authorEmail = 'mithungowda.b7411@gmail.com';
-  static const String githubUrl = 'https://github.com/mithun50/openclaw-termux';
+  static const String githubUrl = 'https://github.com/mithun50/ironclaw-termux';
   static const String license = 'MIT';
 
   static const String githubApiLatestRelease =
-      'https://api.github.com/repos/mithun50/openclaw-termux/releases/latest';
+      'https://api.github.com/repos/mithun50/ironclaw-termux/releases/latest';
 
   // NextGenX
   static const String orgName = 'NextGenX';
@@ -22,7 +22,7 @@ class AppConstants {
   static const String playStoreUrl = 'https://play.google.com/store/apps/dev?id=8262374975871504599';
 
   static const String gatewayHost = '127.0.0.1';
-  static const int gatewayPort = 18789;
+  static const int gatewayPort = 3000;
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
   static const String ubuntuRootfsUrl =
@@ -31,24 +31,8 @@ class AppConstants {
   static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
   static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';
 
-  // Node.js binary tarball — downloaded directly by Flutter, extracted by Java.
-  // Bypasses curl/gpg/NodeSource which fail inside proot.
-  static const String nodeVersion = '22.14.0';
-  static const String nodeBaseUrl =
-      'https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-linux-';
-
-  static String getNodeTarballUrl(String arch) {
-    switch (arch) {
-      case 'aarch64':
-        return '${nodeBaseUrl}arm64.tar.xz';
-      case 'arm':
-        return '${nodeBaseUrl}armv7l.tar.xz';
-      case 'x86_64':
-        return '${nodeBaseUrl}x64.tar.xz';
-      default:
-        return '${nodeBaseUrl}arm64.tar.xz';
-    }
-  }
+  // Rust toolchain installer
+  static const String rustupUrl = 'https://sh.rustup.rs';
 
   static const int healthCheckIntervalMs = 5000;
   static const int maxAutoRestarts = 5;
@@ -60,8 +44,8 @@ class AppConstants {
   static const String nodeRole = 'node';
   static const int pairingTimeoutMs = 300000;
 
-  static const String channelName = 'com.nxg.openclawproot/native';
-  static const String eventChannelName = 'com.nxg.openclawproot/gateway_logs';
+  static const String channelName = 'com.nxg.ironclawproot/native';
+  static const String eventChannelName = 'com.nxg.ironclawproot/gateway_logs';
 
   static String getRootfsUrl(String arch) {
     switch (arch) {

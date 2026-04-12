@@ -1,5 +1,5 @@
-name: openclaw
-description: OpenClaw AI Gateway for Android - standalone, no Termux required.
+name: ironclaw
+description: IronClaw AI Agent for Android - standalone, no Termux required.
 publish_to: 'none'
 version: 1.8.7+18
 
@@ -36,7 +36,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/bionic_bypass.js
     - assets/resolv.conf
     - assets/ic_launcher.png
   fonts:

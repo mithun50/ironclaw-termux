@@ -2,9 +2,8 @@ enum SetupStep {
   checkingStatus,
   downloadingRootfs,
   extractingRootfs,
-  installingNode,
-  installingOpenClaw,
-  configuringBypass,
+  installingRust,
+  installingIronClaw,
   complete,
   error,
 }
@@ -47,12 +46,10 @@ class SetupState {
         return 'Downloading Ubuntu rootfs';
       case SetupStep.extractingRootfs:
         return 'Extracting rootfs';
-      case SetupStep.installingNode:
-        return 'Installing Node.js';
-      case SetupStep.installingOpenClaw:
-        return 'Installing OpenClaw';
-      case SetupStep.configuringBypass:
-        return 'Configuring Bionic Bypass';
+      case SetupStep.installingRust:
+        return 'Installing Rust toolchain';
+      case SetupStep.installingIronClaw:
+        return 'Installing IronClaw';
       case SetupStep.complete:
         return 'Setup complete';
       case SetupStep.error:
@@ -68,18 +65,16 @@ class SetupState {
         return 1;
       case SetupStep.extractingRootfs:
         return 2;
-      case SetupStep.installingNode:
+      case SetupStep.installingRust:
         return 3;
-      case SetupStep.installingOpenClaw:
+      case SetupStep.installingIronClaw:
         return 4;
-      case SetupStep.configuringBypass:
-        return 5;
       case SetupStep.complete:
-        return 6;
+        return 5;
       case SetupStep.error:
         return -1;
     }
   }
 
-  static const int totalSteps = 6;
+  static const int totalSteps = 5;
 }

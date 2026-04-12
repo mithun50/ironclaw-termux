@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants.dart';
@@ -86,12 +85,12 @@ class _SplashScreenState extends State<SplashScreen>
             if (!await downloadDir.exists()) {
               await downloadDir.create(recursive: true);
             }
-            final snapshotPath = '$sdcard/Download/openclaw-snapshot-$oldVersion.json';
-            final openclawJson = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+            final snapshotPath = '$sdcard/Download/ironclaw-snapshot-$oldVersion.json';
+            final ironclawYaml = await NativeBridge.readRootfsFile('root/.ironclaw/ironclaw.yaml');
             final snapshot = {
               'version': oldVersion,
               'timestamp': DateTime.now().toIso8601String(),
-              'openclawConfig': openclawJson,
+              'ironclawConfig': ironclawYaml,
               'dashboardUrl': prefs.dashboardUrl,
               'autoStart': prefs.autoStartGateway,
               'nodeEnabled': prefs.nodeEnabled,
@@ -122,46 +121,17 @@ class _SplashScreenState extends State<SplashScreen>
           final status = await NativeBridge.getBootstrapStatus();
           final rootfsOk = status['rootfsExists'] == true;
           final bashOk = status['binBashExists'] == true;
-          final nodeOk = status['nodeInstalled'] == true;
-          final openclawOk = status['openclawInstalled'] == true;
-          final bypassOk = status['bypassInstalled'] == true;
+          final ironclawOk = status['ironclawInstalled'] == true;
 
           // Core rootfs must exist — can't repair without it
-          if (rootfsOk && bashOk) {
-            // Regenerate bionic bypass if missing
-            if (!bypassOk) {
-              setState(() => _status = 'Repairing bionic bypass...');
-              await NativeBridge.installBionicBypass();
-            }
-
-            // Reinstall node if binary is missing (#97)
-            if (!nodeOk) {
-              setState(() => _status = 'Reinstalling Node.js...');
-              try {
-                final arch = await NativeBridge.getArch();
-                final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
-                final filesDir = await NativeBridge.getFilesDir();
-                final nodeTarPath = '$filesDir/tmp/nodejs.tar.xz';
-                final dio = Dio();
-                await dio.download(nodeTarUrl, nodeTarPath);
-                await NativeBridge.extractNodeTarball(nodeTarPath);
-              } catch (_) {}
-            }
-
-            // Reinstall openclaw if package.json is missing (#97)
-            if (!openclawOk && nodeOk) {
-              setState(() => _status = 'Reinstalling OpenClaw...');
-              try {
-                const wrapper = '/root/.openclaw/node-wrapper.js';
-                const nodeRun = 'node $wrapper';
-                const npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
-                await NativeBridge.runInProot(
-                  '$nodeRun $npmCli install -g openclaw',
-                  timeout: 1800,
-                );
-                await NativeBridge.createBinWrappers('openclaw');
-              } catch (_) {}
-            }
+          if (rootfsOk && bashOk && !ironclawOk) {
+            setState(() => _status = 'Reinstalling IronClaw...');
+            try {
+              await NativeBridge.runInProot(
+                'bash -lc "cargo install --git https://github.com/JoasASantos/ironclaw --force"',
+                timeout: 3600,
+              );
+            } catch (_) {}
 
             setupComplete = await NativeBridge.isBootstrapComplete();
           }
@@ -203,7 +173,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'OpenClaw',
+                'IronClaw',
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -213,7 +183,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                'AI Gateway for Android',
+                'AI Agent for Android',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

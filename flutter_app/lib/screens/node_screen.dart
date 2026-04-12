@@ -29,7 +29,7 @@ class _NodeScreenState extends State<NodeScreen> {
     final prefs = PreferencesService();
     await prefs.init();
     final host = prefs.nodeGatewayHost ?? '127.0.0.1';
-    final port = prefs.nodeGatewayPort ?? 18789;
+    final port = prefs.nodeGatewayPort ?? 3000;
     final token = prefs.nodeGatewayToken ?? '';
     setState(() {
       _isLocal = host == '127.0.0.1' || host == 'localhost';
@@ -106,7 +106,7 @@ class _NodeScreenState extends State<NodeScreen> {
                                 controller: _portController,
                                 decoration: const InputDecoration(
                                   labelText: 'Gateway Port',
-                                  hintText: '18789',
+                                  hintText: '3000',
                                 ),
                                 keyboardType: TextInputType.number,
                               ),
@@ -125,7 +125,7 @@ class _NodeScreenState extends State<NodeScreen> {
                               FilledButton.icon(
                                 onPressed: () {
                                   final host = _hostController.text.trim();
-                                  final port = int.tryParse(_portController.text.trim()) ?? 18789;
+                                  final port = int.tryParse(_portController.text.trim()) ?? 3000;
                                   final token = _tokenController.text.trim();
                                   if (host.isNotEmpty) {
                                     provider.connectRemote(host, port,
