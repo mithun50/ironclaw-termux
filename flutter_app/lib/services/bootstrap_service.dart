@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
 import 'native_bridge.dart';
@@ -121,8 +122,8 @@ class BootstrapService {
         message: 'Rootfs extracted',
       ));
 
-      // Step 3: Fix permissions and install build tools (45-55%)
-      _updateSetupNotification('Fixing rootfs permissions...', progress: 45);
+      // Step 3: Fix permissions + minimal apt deps (45-55%)
+      _updateSetupNotification('Preparing environment...', progress: 45);
       onProgress(const SetupState(
         step: SetupStep.installingRust,
         progress: 0.0,
@@ -141,75 +142,92 @@ class BootstrapService {
       _updateSetupNotification('Updating package lists...', progress: 48);
       onProgress(const SetupState(
         step: SetupStep.installingRust,
-        progress: 0.1,
+        progress: 0.3,
         message: 'Updating package lists...',
       ));
       await NativeBridge.runInProot('apt-get update -y');
 
-      _updateSetupNotification('Installing build tools...', progress: 52);
+      _updateSetupNotification('Installing runtime libraries...', progress: 52);
       onProgress(const SetupState(
         step: SetupStep.installingRust,
-        progress: 0.2,
-        message: 'Installing build tools...',
+        progress: 0.7,
+        message: 'Installing runtime libraries...',
       ));
       await NativeBridge.runInProot(
         'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
-        'echo "Etc/UTC" > /etc/timezone',
-      );
-      await NativeBridge.runInProot(
-        'apt-get install -y --no-install-recommends '
-        'ca-certificates git curl wget build-essential pkg-config '
-        'libssl-dev libsqlite3-dev',
-      );
-
-      // Step 4: Install Rust toolchain (55-75%)
-      _updateSetupNotification('Installing Rust toolchain...', progress: 55);
-      onProgress(const SetupState(
-        step: SetupStep.installingRust,
-        progress: 0.4,
-        message: 'Installing Rust toolchain (this may take a few minutes)...',
-      ));
-      await NativeBridge.runInProot(
-        r"curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path",
-        timeout: 600,
-      );
-
-      _updateSetupNotification('Verifying Rust...', progress: 74);
-      onProgress(const SetupState(
-        step: SetupStep.installingRust,
-        progress: 0.9,
-        message: 'Verifying Rust...',
-      ));
-      await NativeBridge.runInProot(
-        r'source "$HOME/.cargo/env" && rustc --version && cargo --version',
+        'echo "Etc/UTC" > /etc/timezone && '
+        'apt-get install -y --no-install-recommends ca-certificates libssl-dev',
       );
       onProgress(const SetupState(
         step: SetupStep.installingRust,
         progress: 1.0,
-        message: 'Rust installed',
+        message: 'Environment ready',
       ));
 
-      // Step 5: Install IronClaw via cargo (75-98%)
-      _updateSetupNotification('Installing IronClaw...', progress: 76);
+      // Step 4: Install pre-built IronClaw binary (55-95%)
+      _updateSetupNotification('Installing IronClaw...', progress: 56);
       onProgress(const SetupState(
         step: SetupStep.installingIronClaw,
         progress: 0.0,
-        message: 'Building IronClaw from source (this takes several minutes)...',
+        message: 'Installing IronClaw binary...',
       ));
-      await NativeBridge.runInProot(
-        r'source "$HOME/.cargo/env" && '
-        'cargo install --git https://github.com/JoasASantos/ironclaw --locked',
-        timeout: 3600,
-      );
 
-      _updateSetupNotification('Verifying IronClaw...', progress: 96);
+      final assetName = arch == 'aarch64'
+          ? 'assets/ironclaw-aarch64'
+          : arch == 'arm'
+              ? 'assets/ironclaw-armv7'
+              : 'assets/ironclaw-x86_64';
+
+      final byteData = await rootBundle.load(assetName);
+      final bytes = byteData.buffer.asUint8List();
+
+      if (bytes.length > 1024) {
+        // Bundled binary — write directly into the extracted rootfs
+        _updateSetupNotification('Copying IronClaw binary...', progress: 70);
+        onProgress(const SetupState(
+          step: SetupStep.installingIronClaw,
+          progress: 0.4,
+          message: 'Copying binary to environment...',
+        ));
+        final binPath = '$filesDir/rootfs/ubuntu/usr/local/bin/ironclaw';
+        await Directory('$filesDir/rootfs/ubuntu/usr/local/bin').create(recursive: true);
+        await File(binPath).writeAsBytes(bytes);
+        await NativeBridge.runInProot('chmod +x /usr/local/bin/ironclaw');
+      } else {
+        // Placeholder binary (local dev / CI not run) — fall back to cargo build
+        _updateSetupNotification('Building IronClaw from source...', progress: 60);
+        onProgress(const SetupState(
+          step: SetupStep.installingIronClaw,
+          progress: 0.1,
+          message: 'No bundled binary — building from source (15-30 min)...',
+        ));
+        await NativeBridge.runInProot(
+          'apt-get install -y --no-install-recommends '
+          'build-essential pkg-config libssl-dev libsqlite3-dev curl',
+        );
+        await NativeBridge.runInProot(
+          r"curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable",
+          timeout: 600,
+        );
+        await NativeBridge.runInProot(
+          r'source "$HOME/.cargo/env" && '
+          'cargo install --git https://github.com/JoasASantos/ironclaw --locked',
+          timeout: 3600,
+        );
+        await NativeBridge.runInProot(
+          r'cp "$HOME/.cargo/bin/ironclaw" /usr/local/bin/ironclaw && '
+          'chmod +x /usr/local/bin/ironclaw',
+        );
+      }
+
+      _updateSetupNotification('Verifying IronClaw...', progress: 94);
       onProgress(const SetupState(
         step: SetupStep.installingIronClaw,
-        progress: 0.9,
+        progress: 0.85,
         message: 'Verifying IronClaw...',
       ));
       await NativeBridge.runInProot(
-        r'source "$HOME/.cargo/env" && ironclaw --version || echo ironclaw_installed',
+        'ironclaw --version || echo ironclaw_installed',
       );
       onProgress(const SetupState(
         step: SetupStep.installingIronClaw,
@@ -240,3 +258,4 @@ class BootstrapService {
     }
   }
 }
+

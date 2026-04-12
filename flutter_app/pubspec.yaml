@@ -38,6 +38,9 @@ flutter:
   assets:
     - assets/resolv.conf
     - assets/ic_launcher.png
+    - assets/ironclaw-aarch64
+    - assets/ironclaw-armv7
+    - assets/ironclaw-x86_64
   fonts:
     - family: DejaVuSansMono
       fonts:

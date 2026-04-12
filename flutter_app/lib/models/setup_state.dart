@@ -47,7 +47,7 @@ class SetupState {
       case SetupStep.extractingRootfs:
         return 'Extracting rootfs';
       case SetupStep.installingRust:
-        return 'Installing Rust toolchain';
+        return 'Preparing environment';
       case SetupStep.installingIronClaw:
         return 'Installing IronClaw';
       case SetupStep.complete:

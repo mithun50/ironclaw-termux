@@ -22,14 +22,98 @@ permissions:
   pull-requests: write
 
 jobs:
+  build-ironclaw-binaries:
+    name: Cross-compile IronClaw Binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Install cross-compilation toolchains
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+      - name: Clone IronClaw source
+        run: git clone --depth 1 https://github.com/JoasASantos/ironclaw ironclaw
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu,armv7-unknown-linux-gnueabihf,x86_64-unknown-linux-gnu
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ironclaw/target
+          key: rust-ironclaw-${{ runner.os }}-${{ hashFiles('ironclaw/Cargo.lock') }}
+          restore-keys: rust-ironclaw-${{ runner.os }}-
+
+      - name: Build arm64 (aarch64-unknown-linux-gnu)
+        working-directory: ironclaw
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+
+      - name: Build armv7 (armv7-unknown-linux-gnueabihf)
+        working-directory: ironclaw
+        env:
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+        run: cargo build --release --target armv7-unknown-linux-gnueabihf
+
+      - name: Build x86_64 (native)
+        working-directory: ironclaw
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Strip and collect binaries
+        run: |
+          mkdir -p ironclaw-bins
+          aarch64-linux-gnu-strip \
+            ironclaw/target/aarch64-unknown-linux-gnu/release/ironclaw \
+            -o ironclaw-bins/ironclaw-aarch64
+          arm-linux-gnueabihf-strip \
+            ironclaw/target/armv7-unknown-linux-gnueabihf/release/ironclaw \
+            -o ironclaw-bins/ironclaw-armv7
+          strip \
+            ironclaw/target/x86_64-unknown-linux-gnu/release/ironclaw \
+            -o ironclaw-bins/ironclaw-x86_64
+          echo "Binary sizes:"
+          ls -lh ironclaw-bins/
+
+      - name: Upload binaries artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ironclaw-binaries
+          path: ironclaw-bins/
+          retention-days: 30
+
   build:
     name: Build APK & AAB
+    needs: [build-ironclaw-binaries]
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Download IronClaw binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: ironclaw-binaries
+          path: flutter_app/assets/
+
+      - name: Verify binaries
+        run: |
+          for f in flutter_app/assets/ironclaw-aarch64 flutter_app/assets/ironclaw-armv7 flutter_app/assets/ironclaw-x86_64; do
+            SIZE=$(stat -c%s "$f")
+            echo "OK: $f ($(du -h $f | cut -f1))"
+            if [ "$SIZE" -lt 1024 ]; then echo "ERROR: $f is a placeholder!"; exit 1; fi
+          done
 
       - name: Setup Java 17
         uses: actions/setup-java@v4

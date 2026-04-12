@@ -73,7 +73,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   Text(
                     _started
                         ? 'Setting up the environment. This may take several minutes.'
-                        : 'This will download Ubuntu, Rust, and IronClaw into a self-contained environment.',
+                        : 'This will download Ubuntu and install IronClaw into a self-contained environment.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -137,7 +137,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        'Requires ~500MB of storage and an internet connection',
+                        'Requires ~500MB of storage and an internet connection.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -166,8 +166,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     final steps = [
       (1, 'Download Ubuntu rootfs', SetupStep.downloadingRootfs),
       (2, 'Extract rootfs', SetupStep.extractingRootfs),
-      (3, 'Install Rust toolchain', SetupStep.installingRust),
-      (4, 'Install IronClaw', SetupStep.installingIronClaw),
+      (3, 'Prepare environment', SetupStep.installingRust),
+      (4, 'Install IronClaw binary', SetupStep.installingIronClaw),
     ];
 
     return ListView(
