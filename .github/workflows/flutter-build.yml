@@ -42,7 +42,7 @@ jobs:
           targets: aarch64-unknown-linux-gnu,armv7-unknown-linux-gnueabihf,x86_64-unknown-linux-gnu
 
       - name: Cache Rust build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -129,7 +129,7 @@ jobs:
           cache: true
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -138,7 +138,7 @@ jobs:
           restore-keys: gradle-${{ runner.os }}-
 
       - name: Cache pub dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.pub-cache
