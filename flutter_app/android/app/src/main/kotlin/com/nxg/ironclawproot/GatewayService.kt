@@ -194,11 +194,17 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
-                emitLog("[INFO] Spawning proot process...")
+                emitLog("[INFO] Spawning IronClaw process...")
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = pm.startProotProcess("IronClaw gateway --verbose")
+                    // Source API keys from .env before running IronClaw so the
+                    // configured provider (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+                    // is available in the process environment.
+                    gatewayProcess = pm.startProotProcess(
+                        "[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; " +
+                        "ironclaw run --ui"
+                    )
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")

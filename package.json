@@ -41,7 +41,8 @@
   },
   "os": [
     "android",
-    "linux"
+    "linux",
+    "win32"
   ],
   "dependencies": {
     "chalk": "^5.3.0",

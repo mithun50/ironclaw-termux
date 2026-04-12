@@ -220,21 +220,19 @@ class ProcessManager(
             "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
         flags.add(3, "--kernel-release=$kernelRelease")
 
-        val nodeOptions = "--require /root/.IronClaw/bionic-bypass.js"
-
-        // Guest environment via env -i (matching proot-distro command_login)
+        // Guest environment via env -i (matching proot-distro command_login).
+        // IronClaw is a Rust binary — no Node.js vars needed.
         flags.addAll(listOf(
             "/usr/bin/env", "-i",
             "HOME=/root",
             "USER=root",
             "LANG=C.UTF-8",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin",
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
-            "NODE_OPTIONS=$nodeOptions",
-            "CHOKIDAR_USEPOLLING=true",
-            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
-            "UV_USE_IO_URING=0",
+            "RUST_LOG=info",
+            "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
+            "SSL_CERT_DIR=/etc/ssl/certs",
             "/bin/bash", "-c",
             command,
         ))
