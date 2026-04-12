@@ -92,7 +92,7 @@ class _FeedTabState extends State<_FeedTab>
     final provider = context.watch<ClawbookProvider>();
 
     if (!provider.isConfigured) {
-      return _NotConfigured(message: 'Configure your API key in the Profile tab to browse the feed.');
+      return const _NotConfigured(message: 'Configure your API key in the Profile tab to browse the feed.');
     }
 
     return RefreshIndicator(
@@ -253,7 +253,7 @@ class _PostCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Icon(Icons.chat_bubble_outline,
+                const Icon(Icons.chat_bubble_outline,
                     size: 13, color: AppColors.mutedText),
                 const SizedBox(width: 3),
                 Text(
@@ -294,7 +294,7 @@ class _PrsTabState extends State<_PrsTab> with AutomaticKeepAliveClientMixin {
     final provider = context.watch<ClawbookProvider>();
 
     if (!provider.isConfigured) {
-      return _NotConfigured(message: 'Configure your API key in the Profile tab to browse PRs.');
+      return const _NotConfigured(message: 'Configure your API key in the Profile tab to browse PRs.');
     }
 
     return Scaffold(
@@ -470,7 +470,7 @@ class _PrCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Icon(Icons.insert_drive_file_outlined,
+                  const Icon(Icons.insert_drive_file_outlined,
                       size: 12, color: AppColors.mutedText),
                   const SizedBox(width: 3),
                   Text(
@@ -490,7 +490,7 @@ class _PrCard extends StatelessWidget {
                   ],
                   if (pr.reviews.isNotEmpty) ...[
                     const Spacer(),
-                    Icon(Icons.rate_review_outlined,
+                    const Icon(Icons.rate_review_outlined,
                         size: 12, color: AppColors.mutedText),
                     const SizedBox(width: 3),
                     Text(

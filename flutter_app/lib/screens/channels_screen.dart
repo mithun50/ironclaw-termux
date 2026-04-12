@@ -245,8 +245,8 @@ class _CategoryBadge extends StatelessWidget {
 }
 
 class _EnvChip extends StatelessWidget {
-  final String key;
-  const _EnvChip(this.key);
+  final String label;
+  const _EnvChip(this.label);
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +259,7 @@ class _EnvChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        key,
+        label,
         style: theme.textTheme.labelSmall?.copyWith(
           fontFamily: 'monospace',
           fontSize: 11,
