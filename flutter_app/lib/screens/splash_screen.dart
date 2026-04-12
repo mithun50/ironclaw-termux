@@ -128,7 +128,12 @@ class _SplashScreenState extends State<SplashScreen>
             setState(() => _status = 'Reinstalling IronClaw...');
             try {
               await NativeBridge.runInProot(
-                'bash -lc "cargo install --git https://github.com/JoasASantos/ironclaw --force"',
+                'git clone --depth 1 https://github.com/JoasASantos/ironclaw /tmp/ironclaw-src && '
+                'source "\$HOME/.cargo/env" && '
+                'cd /tmp/ironclaw-src && cargo install --path . --force && '
+                'cp "\$HOME/.cargo/bin/ironclaw" /usr/local/bin/ironclaw && '
+                'chmod +x /usr/local/bin/ironclaw && '
+                'rm -rf /tmp/ironclaw-src',
                 timeout: 3600,
               );
             } catch (_) {}

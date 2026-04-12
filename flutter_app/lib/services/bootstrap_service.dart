@@ -210,13 +210,16 @@ class BootstrapService {
           timeout: 600,
         );
         await NativeBridge.runInProot(
-          r'source "$HOME/.cargo/env" && '
-          'cargo install --git https://github.com/JoasASantos/ironclaw --locked',
-          timeout: 3600,
+          'git clone --depth 1 https://github.com/JoasASantos/ironclaw /tmp/ironclaw-src',
+          timeout: 120,
         );
         await NativeBridge.runInProot(
-          r'cp "$HOME/.cargo/bin/ironclaw" /usr/local/bin/ironclaw && '
-          'chmod +x /usr/local/bin/ironclaw',
+          r'source "$HOME/.cargo/env" && '
+          'cd /tmp/ironclaw-src && cargo install --path . --locked && '
+          'cp "$HOME/.cargo/bin/ironclaw" /usr/local/bin/ironclaw && '
+          'chmod +x /usr/local/bin/ironclaw && '
+          'rm -rf /tmp/ironclaw-src',
+          timeout: 3600,
         );
       }
 
