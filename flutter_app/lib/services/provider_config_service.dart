@@ -3,14 +3,14 @@ import 'native_bridge.dart';
 
 /// Reads and writes AI provider configuration for IronClaw.
 ///
-/// IronClaw uses:
-///   - Environment variables for API keys (e.g. ANTHROPIC_API_KEY)
-///   - `ironclaw.yaml` in the working directory (or created by `ironclaw onboard`)
-///     for default_provider / default_model settings.
-/// The .env file is stored at /root/.ironclaw/.env and sourced from /root/.bashrc.
+/// IronClaw reads API keys exclusively from environment variables
+/// (e.g. ANTHROPIC_API_KEY). This service manages:
+///   - Writing keys to `/root/.ironclaw/.env` (sourced from .bashrc)
+///   - Writing `ironclaw.yaml` to `/root/` with default_provider/default_model
+/// Keys never leave the device and are stored only inside the proot rootfs.
 class ProviderConfigService {
   /// Path to ironclaw.yaml — saved in /root (proot working directory) so that
-  /// `ironclaw run` finds it automatically, matching what `ironclaw onboard` produces.
+  /// `ironclaw run` finds it automatically.
   static const _configPath = 'root/ironclaw.yaml';
   static const _envFilePath = 'root/.ironclaw/.env';
 
@@ -19,25 +19,44 @@ class ProviderConfigService {
     return s.replaceAll("'", "'\\''");
   }
 
-  /// Read the current active provider/model from ironclaw.yaml.
+  /// Read the current active provider/model and which providers have keys.
+  ///
+  /// Returns:
+  ///   - `activeProvider`: the `default_provider` value from ironclaw.yaml
+  ///   - `activeModel`: the `default_model` value from ironclaw.yaml
+  ///   - `providers`: map of provider id → `{'configured': true}` for each
+  ///     provider whose env var is present in the .env file
   static Future<Map<String, dynamic>> readConfig() async {
+    String? activeProvider, activeModel;
+    final Map<String, dynamic> providers = {};
+
     try {
-      final content = await NativeBridge.readRootfsFile(_configPath);
-      if (content == null || content.isEmpty) {
-        return {'activeProvider': null, 'activeModel': null};
+      final yaml = await NativeBridge.readRootfsFile(_configPath);
+      if (yaml != null && yaml.isNotEmpty) {
+        String? extract(String key) {
+          final match = RegExp(r'^\s*' + key + r':\s*["\x27]?([^"' + "'" + r'\n]+)["\x27]?',
+              multiLine: true).firstMatch(yaml);
+          return match?.group(1)?.trim();
+        }
+        activeProvider = extract('default_provider');
+        activeModel = extract('default_model');
       }
-      String? extractYaml(String key) {
-        final match = RegExp(r'^\s*' + key + r':\s*["\x27]?([^"' + "'" + r'\n]+)["\x27]?',
-            multiLine: true).firstMatch(content);
-        return match?.group(1)?.trim();
+    } catch (_) {}
+
+    try {
+      final envContent = await NativeBridge.readRootfsFile(_envFilePath) ?? '';
+      for (final provider in AiProvider.all) {
+        if (RegExp('^${provider.envVarName}=.+', multiLine: true).hasMatch(envContent)) {
+          providers[provider.id] = {'configured': true};
+        }
       }
-      return {
-        'activeProvider': extractYaml('default_provider'),
-        'activeModel': extractYaml('default_model'),
-      };
-    } catch (_) {
-      return {'activeProvider': null, 'activeModel': null};
-    }
+    } catch (_) {}
+
+    return {
+      'activeProvider': activeProvider,
+      'activeModel': activeModel,
+      'providers': providers,
+    };
   }
 
   /// Save the provider API key as an environment variable and update

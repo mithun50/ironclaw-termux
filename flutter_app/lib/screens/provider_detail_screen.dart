@@ -6,13 +6,14 @@ import '../services/provider_config_service.dart';
 /// Form screen to configure API key and model for a single AI provider.
 class ProviderDetailScreen extends StatefulWidget {
   final AiProvider provider;
-  final String? existingApiKey;
+  /// True if the provider already has an API key saved in the .env file.
+  final bool isConfigured;
   final String? existingModel;
 
   const ProviderDetailScreen({
     super.key,
     required this.provider,
-    this.existingApiKey,
+    this.isConfigured = false,
     this.existingModel,
   });
 
@@ -31,7 +32,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   bool _saving = false;
   bool _removing = false;
 
-  bool get _isConfigured => widget.existingApiKey != null && widget.existingApiKey!.isNotEmpty;
+  bool get _isConfigured => widget.isConfigured;
 
   /// Returns the effective model name to save.
   String get _effectiveModel =>
@@ -40,7 +41,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController(text: widget.existingApiKey ?? '');
+    _apiKeyController = TextEditingController();
     _customModelController = TextEditingController();
 
     final existing = widget.existingModel ?? widget.provider.defaultModels.first;
@@ -204,8 +205,13 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           TextField(
             controller: _apiKeyController,
             obscureText: _obscureKey,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               hintText: widget.provider.apiKeyHint,
+              helperText: widget.isConfigured
+                  ? 'Key already set — enter a new key to replace it'
+                  : 'Stored as ${widget.provider.envVarName} — never leaves the device',
               suffixIcon: IconButton(
                 icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscureKey = !_obscureKey),

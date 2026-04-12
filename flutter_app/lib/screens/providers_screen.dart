@@ -35,12 +35,12 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   }
 
   Future<void> _openProvider(AiProvider provider) async {
-    final providerConfig = _providers[provider.id] as Map<String, dynamic>?;
+    final isConfigured = _providers.containsKey(provider.id);
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ProviderDetailScreen(
           provider: provider,
-          existingApiKey: providerConfig?['apiKey'] as String?,
+          isConfigured: isConfigured,
           existingModel: _activeModel,
         ),
       ),

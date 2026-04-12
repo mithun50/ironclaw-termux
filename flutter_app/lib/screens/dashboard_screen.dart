@@ -7,7 +7,6 @@ import '../providers/node_provider.dart';
 import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
 import 'node_screen.dart';
-import 'configure_screen.dart';
 import 'onboarding_screen.dart';
 import 'terminal_screen.dart';
 import 'web_dashboard_screen.dart';
@@ -106,24 +105,6 @@ class DashboardScreen extends StatelessWidget {
                       : null,
                 );
               },
-            ),
-            StatusCard(
-              title: 'Onboarding',
-              subtitle: 'Configure API keys and binding',
-              icon: Icons.vpn_key,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-              ),
-            ),
-            StatusCard(
-              title: 'Configure',
-              subtitle: 'Manage gateway settings',
-              icon: Icons.tune,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ConfigureScreen()),
-              ),
             ),
             StatusCard(
               title: 'AI Providers',
