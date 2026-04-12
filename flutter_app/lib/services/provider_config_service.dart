@@ -108,6 +108,9 @@ agent:
   max_turns: 100
   tool_timeout_secs: 30
 
+memory:
+  backend: "encrypted_sqlite"
+
 ui:
   enabled: true
   bind_address: "127.0.0.1"

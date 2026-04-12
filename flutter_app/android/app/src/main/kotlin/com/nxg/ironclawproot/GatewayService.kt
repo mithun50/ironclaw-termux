@@ -201,8 +201,14 @@ class GatewayService : Service() {
                     // Source API keys from .env before running IronClaw so the
                     // configured provider (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
                     // is available in the process environment.
+                    // Also ensure ironclaw.yaml exists with a valid memory backend —
+                    // the binary's built-in "secure defaults" use "sqlite" which it
+                    // does not actually support (valid: encrypted_sqlite, file, none).
                     gatewayProcess = pm.startProotProcess(
                         "[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; " +
+                        "if [ ! -f /root/ironclaw.yaml ]; then " +
+                        "mkdir -p /root && printf 'memory:\\n  backend: \"encrypted_sqlite\"\\n' > /root/ironclaw.yaml; " +
+                        "fi; " +
                         "ironclaw run --ui"
                     )
                 }
