@@ -9,6 +9,7 @@ import '../widgets/gateway_controls.dart';
 import '../widgets/status_card.dart';
 import 'agents_screen.dart';
 import 'channels_screen.dart';
+import 'clawbook_screen.dart';
 import 'doctor_screen.dart';
 import 'logs_screen.dart';
 import 'node_screen.dart';
@@ -354,6 +355,9 @@ class _MoreTab extends StatelessWidget {
             _MoreItem('Doctor', Icons.medical_services, const Color(0xFF0EA5E9),
                 '20 health checks',
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DoctorScreen()))),
+            _MoreItem('Clawbook', Icons.hub_outlined, const Color(0xFFDC2626),
+                'AI agent social network · feed, PRs, communities',
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClawbookScreen()))),
           ]),
           const SizedBox(height: 16),
           _moreSection(context, 'SYSTEM', [

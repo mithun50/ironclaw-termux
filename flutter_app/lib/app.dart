@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/setup_provider.dart';
 import 'providers/gateway_provider.dart';
 import 'providers/node_provider.dart';
+import 'providers/clawbook_provider.dart';
 import 'screens/splash_screen.dart';
 
 /// Centralized color palette for the entire app.
@@ -50,6 +51,7 @@ class IronClawApp extends StatelessWidget {
             return nodeProvider;
           },
         ),
+        ChangeNotifierProvider(create: (_) => ClawbookProvider()),
       ],
       child: MaterialApp(
         title: 'IronClaw',
