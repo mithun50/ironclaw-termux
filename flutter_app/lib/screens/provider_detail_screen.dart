@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../app.dart';
 import '../models/ai_provider.dart';
+import '../providers/gateway_provider.dart';
 import '../services/provider_config_service.dart';
 
 /// Form screen to configure API key and model for a single AI provider.
@@ -85,6 +87,41 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
         apiKey: apiKey,
         model: model,
       );
+      if (!mounted) return;
+
+      final gatewayProvider = context.read<GatewayProvider>();
+      final gatewayRunning = gatewayProvider.state.isRunning;
+
+      if (gatewayRunning) {
+        // Keys are written to .ironclaw/.env but the gateway process must be
+        // restarted to pick them up (env vars are read at startup).
+        final restart = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Restart Gateway?'),
+            content: Text(
+              '${widget.provider.name} is now configured.\n\n'
+              'Restart the gateway for the new API key to take effect.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Later'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Restart Now'),
+              ),
+            ],
+          ),
+        );
+        if (restart == true && mounted) {
+          await gatewayProvider.stop();
+          await Future.delayed(const Duration(milliseconds: 800));
+          await gatewayProvider.start();
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${widget.provider.name} configured and activated')),

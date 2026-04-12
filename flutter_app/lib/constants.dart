@@ -10,9 +10,22 @@ class AppConstants {
   static const String authorEmail = 'mithungowda.b7411@gmail.com';
   static const String githubUrl = 'https://github.com/mithun50/ironclaw-termux';
   static const String license = 'MIT';
+  /// Upstream IronClaw Rust framework repo.
+  static const String ironclawUpstreamUrl = 'https://github.com/JoasASantos/ironclaw';
 
   static const String githubApiLatestRelease =
       'https://api.github.com/repos/mithun50/ironclaw-termux/releases/latest';
+
+  // IronClaw built-in presets — maps preset id → {provider, model, tagline}
+  // Source: ironclaw/src/main.rs preset definitions
+  static const Map<String, Map<String, String>> presets = {
+    'fast':   {'provider': 'groq',      'model': 'llama-3.3-70b-versatile',    'tagline': 'Ultra-fast Groq inference'},
+    'smart':  {'provider': 'anthropic', 'model': 'claude-sonnet-4-5-20250514', 'tagline': 'Highest quality reasoning'},
+    'cheap':  {'provider': 'deepseek',  'model': 'deepseek-chat',              'tagline': 'Lowest cost option'},
+    'local':  {'provider': 'ollama',    'model': 'llama3.3',                   'tagline': 'No API key — on-device'},
+    'vision': {'provider': 'google',    'model': 'gemini-2.5-flash',           'tagline': 'Multimodal vision tasks'},
+    'code':   {'provider': 'anthropic', 'model': 'claude-sonnet-4-5-20250514', 'tagline': 'Code generation & review'},
+  };
 
   // NextGenX
   static const String orgName = 'NextGenX';

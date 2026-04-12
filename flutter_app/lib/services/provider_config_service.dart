@@ -109,7 +109,7 @@ agent:
   tool_timeout_secs: 30
 
 ui:
-  enabled: false
+  enabled: true
   bind_address: "127.0.0.1"
   port: 3000
   theme: "dark"

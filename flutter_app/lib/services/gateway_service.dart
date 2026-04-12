@@ -75,7 +75,26 @@ class GatewayService {
       if (logs.length > 500) {
         logs.removeRange(0, logs.length - 500);
       }
-      _updateState(_state.copyWith(logs: logs));
+
+      // Parse the dashboard URL + session token that IronClaw prints on startup.
+      // IronClaw web UI logs a line like:
+      //   "Web UI: http://127.0.0.1:3000#token=<hex>"
+      //   "Web UI available at http://127.0.0.1:3000?token=<hex>"
+      String? parsedUrl;
+      final urlMatch = RegExp(
+        r'https?://[0-9.]+:\d+(?:[#?]token=[0-9a-fA-F]+)?',
+      ).firstMatch(log);
+      if (urlMatch != null) {
+        final candidate = urlMatch.group(0)!;
+        if (candidate.contains('127.0.0.1') || candidate.contains('localhost')) {
+          parsedUrl = candidate;
+        }
+      }
+
+      _updateState(_state.copyWith(
+        logs: logs,
+        dashboardUrl: parsedUrl ?? _state.dashboardUrl,
+      ));
     });
   }
 

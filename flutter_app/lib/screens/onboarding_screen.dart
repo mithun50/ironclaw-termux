@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../app.dart';
+import '../constants.dart';
 import '../models/ai_provider.dart';
+import '../providers/gateway_provider.dart';
 import '../services/provider_config_service.dart';
 import '../services/preferences_service.dart';
 import 'dashboard_screen.dart';
@@ -27,6 +30,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isCustomModel = false;
   bool _obscureKey = true;
   bool _saving = false;
+  String? _selectedPresetId;
 
   String get _effectiveModel =>
       _isCustomModel ? _customModelController.text.trim() : _selectedModel;
@@ -52,13 +56,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _selectedProvider = provider;
       _selectedModel = provider.defaultModels.first;
       _isCustomModel = false;
+      _selectedPresetId = null;
+      _apiKeyController.clear();
+    });
+  }
+
+  void _applyPreset(String presetId) {
+    final data = AppConstants.presets[presetId]!;
+    final provider = AiProvider.all.firstWhere(
+      (p) => p.id == data['provider'],
+      orElse: () => _selectedProvider,
+    );
+    final model = data['model']!;
+    setState(() {
+      _selectedProvider = provider;
+      _selectedModel = model;
+      _isCustomModel = false;
+      _selectedPresetId = presetId;
       _apiKeyController.clear();
     });
   }
 
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isEmpty) {
+    if (apiKey.isEmpty && _selectedProvider.requiresApiKey) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('API key cannot be empty')),
       );
@@ -92,10 +113,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_selectedProvider.name} configured and activated')),
-        );
-        Navigator.of(context).pop(true);
+        // If the gateway is already running, offer to restart it so the new
+        // API key takes effect immediately.
+        final gatewayProvider = context.read<GatewayProvider>();
+        if (gatewayProvider.state.isRunning) {
+          final restart = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Restart Gateway?'),
+              content: Text(
+                '${_selectedProvider.name} is now configured.\n\n'
+                'Restart the gateway for the new API key to take effect.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Later'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Restart Now'),
+                ),
+              ],
+            ),
+          );
+          if (restart == true && mounted) {
+            await gatewayProvider.stop();
+            await Future.delayed(const Duration(milliseconds: 800));
+            await gatewayProvider.start();
+          }
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${_selectedProvider.name} configured and activated')),
+          );
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -161,6 +214,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
 
+          // Preset quick-select chips
+          if (widget.isFirstRun) ...[
+            Text(
+              'Quick Presets',
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            _PresetChipsRow(
+              selectedPresetId: _selectedPresetId,
+              onSelect: _applyPreset,
+            ),
+            const SizedBox(height: 20),
+          ],
+
           // Provider picker
           Text(
             'AI Provider',
@@ -212,12 +279,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              hintText: _selectedProvider.apiKeyHint,
-              helperText: 'Stored as ${_selectedProvider.envVarName} — never leaves the device',
-              suffixIcon: IconButton(
-                icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscureKey = !_obscureKey),
-              ),
+              hintText: _selectedProvider.requiresApiKey
+                  ? _selectedProvider.apiKeyHint
+                  : '(no API key needed)',
+              helperText: _selectedProvider.requiresApiKey
+                  ? 'Stored as ${_selectedProvider.envVarName} — never leaves the device'
+                  : 'Local provider — runs on your device without an API key',
+              suffixIcon: _selectedProvider.requiresApiKey
+                  ? IconButton(
+                      icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _obscureKey = !_obscureKey),
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 24),
@@ -280,6 +353,87 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PresetChipsRow extends StatelessWidget {
+  final String? selectedPresetId;
+  final void Function(String presetId) onSelect;
+
+  const _PresetChipsRow({required this.selectedPresetId, required this.onSelect});
+
+  static const _presetIcons = {
+    'fast':   Icons.flash_on,
+    'smart':  Icons.psychology,
+    'cheap':  Icons.savings,
+    'local':  Icons.computer,
+    'vision': Icons.remove_red_eye,
+    'code':   Icons.code,
+  };
+
+  static const _presetColors = {
+    'fast':   Color(0xFFF97316),
+    'smart':  Color(0xFFD97706),
+    'cheap':  Color(0xFF0EA5E9),
+    'local':  Color(0xFF374151),
+    'vision': Color(0xFF4285F4),
+    'code':   Color(0xFF7C3AED),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final presets = AppConstants.presets.entries.toList();
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: presets.map((entry) {
+        final id = entry.key;
+        final data = entry.value;
+        final selected = selectedPresetId == id;
+        final color = _presetColors[id] ?? AppColors.mutedText;
+        final icon = _presetIcons[id] ?? Icons.tune;
+
+        return GestureDetector(
+          onTap: () => onSelect(id),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? color.withOpacity(0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? color : color.withOpacity(0.35),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 5),
+                Text(
+                  id,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: selected ? color : theme.colorScheme.onSurface,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '· ${data['tagline']}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.mutedText,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -5,6 +5,7 @@ class StatusCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color? color;
+  final Color? iconColor;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -14,6 +15,7 @@ class StatusCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     this.color,
+    this.iconColor,
     this.trailing,
     this.onTap,
   });
@@ -23,7 +25,7 @@ class StatusCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final iconBg = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF3F4F6);
-    final iconColor = theme.colorScheme.onSurfaceVariant;
+    final resolvedIconColor = iconColor ?? color ?? theme.colorScheme.onSurfaceVariant;
 
     return Card(
       child: InkWell(
@@ -39,7 +41,7 @@ class StatusCard extends StatelessWidget {
                   color: iconBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: iconColor, size: 28),
+                child: Icon(icon, color: resolvedIconColor, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
