@@ -8,7 +8,7 @@ import '../models/ai_provider.dart';
 import '../models/gateway_state.dart';
 import '../providers/gateway_provider.dart';
 import '../screens/logs_screen.dart';
-import '../screens/onboarding_screen.dart';
+import '../screens/providers_screen.dart';
 import '../screens/web_dashboard_screen.dart';
 import '../services/provider_config_service.dart';
 
@@ -20,7 +20,37 @@ class GatewayControls extends StatefulWidget {
 }
 
 class _GatewayControlsState extends State<GatewayControls> {
+  // ── Cached config state (avoids FutureBuilder re-creating future on rebuild) ──
+  Map<String, dynamic> _config = {};
+  bool _configLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+    ProviderConfigService.configChangedListenable.addListener(_onConfigChanged);
+  }
+
+  @override
+  void dispose() {
+    ProviderConfigService.configChangedListenable.removeListener(_onConfigChanged);
+    super.dispose();
+  }
+
+  void _onConfigChanged() => _loadConfig();
+
+  Future<void> _loadConfig() async {
+    final config = await ProviderConfigService.readConfig();
+    if (mounted) {
+      setState(() {
+        _config = config;
+        _configLoaded = true;
+      });
+    }
+  }
+
   Future<void> _openRuntimePicker(BuildContext context) async {
+    // Use fresh config for the picker so it always reflects latest state
     final config = await ProviderConfigService.readConfig();
     final configuredProviders = AiProvider.all.where((provider) {
       return (config['providers'] as Map<String, dynamic>? ?? {}).containsKey(provider.id);
@@ -180,10 +210,10 @@ class _GatewayControlsState extends State<GatewayControls> {
       provider: selection.provider,
       model: selection.model,
     );
+    // _notifyConfigChanged() inside setActiveProviderConfig triggers _loadConfig()
+    // automatically, so no extra setState needed here.
 
     if (!mounted) return;
-
-    setState(() {});
 
     final gatewayProvider = context.read<GatewayProvider>();
     if (gatewayProvider.state.isRunning) {
@@ -226,175 +256,188 @@ class _GatewayControlsState extends State<GatewayControls> {
   }
 
   Future<void> _openProviderSetup(BuildContext context) async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const OnboardingScreen(isFirstRun: false),
-      ),
+    // Always go to the Providers list so users can see & edit existing providers
+    // and add new ones — never open a blank "add" form from here.
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProvidersScreen()),
     );
-    if (result == true && mounted) {
-      setState(() {});
-    }
+    // The configChangedListenable will trigger _loadConfig() automatically
+    // if any changes were saved. Force an extra refresh in case none fired.
+    if (mounted) await _loadConfig();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Show a slim loading indicator the very first time config is fetching.
+    if (!_configLoaded) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 12),
+                Text('Loading config…', style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final providersMap = _config['providers'] as Map<String, dynamic>? ?? {};
+    final activeProviderId = _config['activeProvider'] as String?;
+    final activeModel = _config['activeModel'] as String?;
+
+    final configuredProviders = AiProvider.all.where((p) {
+      return providersMap.containsKey(p.id);
+    }).toList();
+
+    AiProvider? activeProvider;
+    for (final p in AiProvider.all) {
+      if (p.ironclawId == activeProviderId) {
+        activeProvider = p;
+        break;
+      }
+    }
+
     return Consumer<GatewayProvider>(
       builder: (context, provider, _) {
         final state = provider.state;
 
-        return FutureBuilder<Map<String, dynamic>>(
-          future: ProviderConfigService.readConfig(),
-          builder: (context, snapshot) {
-            final config = snapshot.data ?? const <String, dynamic>{};
-            final providersMap = config['providers'] as Map<String, dynamic>? ?? {};
-            final activeProviderId = config['activeProvider'] as String?;
-            final activeModel = config['activeModel'] as String?;
-
-            final configuredProviders = AiProvider.all.where((provider) {
-              return providersMap.containsKey(provider.id);
-            }).toList();
-
-            AiProvider? activeProvider;
-            for (final provider in AiProvider.all) {
-              if (provider.ironclawId == activeProviderId) {
-                activeProvider = provider;
-                break;
-              }
-            }
-
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Gateway',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        'Gateway',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                        _statusBadge(state.status, theme),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    if (state.isRunning) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => WebDashboardScreen(
-                                      url: state.dashboardUrl,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                state.dashboardUrl ?? AppConstants.gatewayUrl,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontFamily: 'monospace',
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: theme.colorScheme.primary,
+                    _statusBadge(state.status, theme),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (state.isRunning) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => WebDashboardScreen(
+                                  url: state.dashboardUrl,
                                 ),
                               ),
+                            );
+                          },
+                          child: Text(
+                            state.dashboardUrl ?? AppConstants.gatewayUrl,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontFamily: 'monospace',
+                              decoration: TextDecoration.underline,
+                              decorationColor: theme.colorScheme.primary,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 18),
-                            tooltip: 'Copy URL',
-                            onPressed: () {
-                              final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
-                              Clipboard.setData(ClipboardData(text: url));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('URL copied to clipboard'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.open_in_new, size: 18),
-                            tooltip: 'Open dashboard',
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => WebDashboardScreen(
-                                    url: state.dashboardUrl,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 18),
+                        tooltip: 'Copy URL',
+                        onPressed: () {
+                          final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
+                          Clipboard.setData(ClipboardData(text: url));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('URL copied to clipboard'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        tooltip: 'Open dashboard',
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => WebDashboardScreen(
+                                url: state.dashboardUrl,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
-                    if (state.errorMessage != null)
-                      Text(
-                        state.errorMessage!,
-                        style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
+                if (state.errorMessage != null)
+                  Text(
+                    state.errorMessage!,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                const SizedBox(height: 16),
+                _RuntimeSummaryCard(
+                  activeProvider: activeProvider,
+                  activeModel: activeModel,
+                  configuredProviders: configuredProviders,
+                  providersMap: providersMap,
+                  onConfigure: () => _openProviderSetup(context),
+                  onChangeRuntime: configuredProviders.isEmpty
+                      ? null
+                      : () => _openRuntimePicker(context),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (state.isStopped || state.status == GatewayStatus.error)
+                      FilledButton.icon(
+                        onPressed: configuredProviders.isEmpty
+                            ? null
+                            : () => provider.start(),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Start Gateway'),
                       ),
-                    const SizedBox(height: 16),
-                    _RuntimeSummaryCard(
-                      activeProvider: activeProvider,
-                      activeModel: activeModel,
-                      configuredProviders: configuredProviders,
-                      providersMap: providersMap,
-                      onConfigure: () => _openProviderSetup(context),
-                      onChangeRuntime: configuredProviders.isEmpty
-                          ? null
+                    if (state.isRunning || state.status == GatewayStatus.starting)
+                      OutlinedButton.icon(
+                        onPressed: () => provider.stop(),
+                        icon: const Icon(Icons.stop),
+                        label: const Text('Stop Gateway'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: configuredProviders.isEmpty
+                          ? () => _openProviderSetup(context)
                           : () => _openRuntimePicker(context),
+                      icon: const Icon(Icons.tune),
+                      label: const Text('Select Model'),
                     ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (state.isStopped || state.status == GatewayStatus.error)
-                          FilledButton.icon(
-                            onPressed: configuredProviders.isEmpty
-                                ? null
-                                : () => provider.start(),
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Start Gateway'),
-                          ),
-                        if (state.isRunning || state.status == GatewayStatus.starting)
-                          OutlinedButton.icon(
-                            onPressed: () => provider.stop(),
-                            icon: const Icon(Icons.stop),
-                            label: const Text('Stop Gateway'),
-                          ),
-                        OutlinedButton.icon(
-                          onPressed: configuredProviders.isEmpty
-                              ? () => _openProviderSetup(context)
-                              : () => _openRuntimePicker(context),
-                          icon: const Icon(Icons.tune),
-                          label: const Text('Select Model'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const LogsScreen()),
-                          ),
-                          icon: const Icon(Icons.article_outlined),
-                          label: const Text('View Logs'),
-                        ),
-                      ],
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LogsScreen()),
+                      ),
+                      icon: const Icon(Icons.article_outlined),
+                      label: const Text('View Logs'),
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );

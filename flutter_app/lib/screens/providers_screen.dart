@@ -22,6 +22,15 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   void initState() {
     super.initState();
     _refresh();
+    ProviderConfigService.configChangedListenable.addListener(_onConfigChanged);
+  }
+
+  void _onConfigChanged() => _refresh();
+
+  @override
+  void dispose() {
+    ProviderConfigService.configChangedListenable.removeListener(_onConfigChanged);
+    super.dispose();
   }
 
   Future<void> _refresh() async {

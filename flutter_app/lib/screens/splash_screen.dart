@@ -6,6 +6,7 @@ import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
 import '../services/provider_config_service.dart';
+import 'onboarding_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -148,9 +149,28 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (setupComplete) {
         prefs.setupComplete = true;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-        );
+
+        // If no provider is configured yet (e.g. user closed app during
+        // onboarding), send them to configure one before the dashboard.
+        setState(() => _status = 'Checking provider config…');
+        bool hasProvider = false;
+        try {
+          final config = await ProviderConfigService.readConfig();
+          hasProvider = (config['providers'] as Map?)?.isNotEmpty == true;
+        } catch (_) {}
+
+        if (!mounted) return;
+        if (hasProvider) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const OnboardingScreen(isFirstRun: true),
+            ),
+          );
+        }
       } else {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SetupWizardScreen()),

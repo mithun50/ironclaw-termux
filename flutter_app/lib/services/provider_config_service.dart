@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../models/ai_provider.dart';
 import 'native_bridge.dart';
 
@@ -11,6 +13,14 @@ import 'native_bridge.dart';
 ///   - Writing `ironclaw.yaml` to `/root/` with default_provider/default_model
 /// Keys never leave the device and are stored only inside the proot rootfs.
 class ProviderConfigService {
+  // ─── Change notification ──────────────────────────────────────────────────
+  /// Increments whenever provider config changes. Widgets can listen to this
+  /// to know when to reload their provider data.
+  static final _changeNotifier = ValueNotifier<int>(0);
+  static ValueListenable<int> get configChangedListenable => _changeNotifier;
+  static void _notifyConfigChanged() => _changeNotifier.value++;
+
+  // ─── File paths (relative to rootfs root) ────────────────────────────────
   /// Path to ironclaw.yaml — saved in /root (the proot working directory) so
   /// `ironclaw --config /root/ironclaw.yaml run ...` uses it directly.
   static const configPath = 'root/ironclaw.yaml';
@@ -254,6 +264,7 @@ audit:
     );
     await writeConfigYaml(updated);
     await _saveStoredModel(providerId: provider.id, model: model);
+    _notifyConfigChanged();
   }
 
   static String _clearActiveProviderConfig(String? existingYaml) {
@@ -294,6 +305,7 @@ audit:
     await _writeEnvMap(envValues);
     await _ensureBashrcEnvSource();
     await setActiveProviderConfig(provider: provider, model: model);
+    _notifyConfigChanged();
   }
 
   /// Remove a provider''s API key from the .env file.
@@ -338,5 +350,6 @@ audit:
 
     final cleared = _clearActiveProviderConfig(await readConfigYaml());
     await writeConfigYaml(cleared);
+    _notifyConfigChanged();
   }
 }
