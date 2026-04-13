@@ -13,7 +13,6 @@ import 'clawbook_screen.dart';
 import 'doctor_screen.dart';
 import 'logs_screen.dart';
 import 'node_screen.dart';
-import 'onboarding_screen.dart';
 import 'packages_screen.dart';
 import 'providers_screen.dart';
 import 'security_screen.dart';
@@ -171,13 +170,13 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
             StatusCard(
-              title: 'Add Provider',
-              subtitle: 'Configure a new AI provider API key',
-              icon: Icons.add_circle_outline,
+              title: 'Manage Providers',
+              subtitle: 'View configured providers and add or update API keys',
+              icon: Icons.model_training,
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const OnboardingScreen(isFirstRun: false),
+                  builder: (_) => const ProvidersScreen(),
                 ),
               ),
             ),
@@ -440,4 +439,3 @@ class _MoreItem extends StatelessWidget {
     );
   }
 }
-

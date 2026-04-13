@@ -18,11 +18,6 @@ class ProviderConfigService {
   static const _envFilePath = 'root/.ironclaw/.env';
   static const _providerMetadataPath = 'root/.ironclaw/providers.json';
 
-  /// Escape a string for use as a single-quoted shell argument.
-  static String _shellEscape(String s) {
-    return s.replaceAll("'", "'\\''");
-  }
-
   static String _defaultConfigYaml({
     required String providerId,
     required String model,
@@ -73,6 +68,41 @@ audit:
       _providerMetadataPath,
       const JsonEncoder.withIndent('  ').convert(data),
     );
+  }
+
+  static Future<Map<String, String>> _readEnvMap() async {
+    final raw = await NativeBridge.readRootfsFile(_envFilePath) ?? '';
+    final values = <String, String>{};
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+      final idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      values[trimmed.substring(0, idx)] = trimmed.substring(idx + 1);
+    }
+    return values;
+  }
+
+  static Future<void> _writeEnvMap(Map<String, String> values) async {
+    final lines = values.entries
+        .where((entry) => entry.value.trim().isNotEmpty)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .toList()
+      ..sort();
+    final content = lines.isEmpty ? '' : '${lines.join('\n')}\n';
+    await NativeBridge.writeRootfsFile(_envFilePath, content);
+  }
+
+  static Future<void> _ensureBashrcEnvSource() async {
+    const sourceLine = '[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env';
+    final existing = await NativeBridge.readRootfsFile('root/.bashrc') ?? '';
+    if (!existing.contains(sourceLine)) {
+      final suffix = existing.isEmpty || existing.endsWith('\n') ? '' : '\n';
+      await NativeBridge.writeRootfsFile(
+        'root/.bashrc',
+        '$existing$suffix$sourceLine\n',
+      );
+    }
   }
 
   static Future<Map<String, String>> readStoredModels() async {
@@ -226,6 +256,22 @@ audit:
     await _saveStoredModel(providerId: provider.id, model: model);
   }
 
+  static String _clearActiveProviderConfig(String? existingYaml) {
+    if (existingYaml == null || existingYaml.trim().isEmpty) {
+      return '';
+    }
+
+    var yaml = existingYaml.replaceAll(
+      RegExp(r'(?m)^\s*default_provider:\s*.*\n?'),
+      '',
+    );
+    yaml = yaml.replaceAll(
+      RegExp(r'(?m)^\s*default_model:\s*.*\n?'),
+      '',
+    );
+    return yaml.replaceAll(RegExp(r'\n{3,}'), '\n\n').trimRight();
+  }
+
   /// Save the provider API key as an environment variable and update
   /// ironclaw.yaml with default_provider and default_model.
   static Future<void> saveProviderConfig({
@@ -234,68 +280,20 @@ audit:
     required String model,
   }) async {
     final envVar = provider.envVarName;
-    final providerId = provider.ironclawId;
-
-    final script = """
-#!/bin/bash
-set -e
-mkdir -p /root/.ironclaw
-
-# Write API key to .env
-ENV_FILE="/root/.ironclaw/.env"
-if [ -f "\\\$ENV_FILE" ]; then
-  sed -i '/^${envVar}=/d' "\\\$ENV_FILE"
-fi
-echo '${envVar}=${_shellEscape(apiKey)}' >> "\\\$ENV_FILE"
-
-# Source .env on login
-BASHRC="/root/.bashrc"
-if ! grep -q '.ironclaw/.env' "\\\$BASHRC" 2>/dev/null; then
-  echo '[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env' >> "\\\$BASHRC"
-fi
-
-# Write ironclaw.yaml to /root (CWD when ironclaw runs)
-CONFIG="/root/ironclaw.yaml"
-if [ -f "\\\$CONFIG" ]; then
-  if ! grep -q '^agent:' "\\\$CONFIG"; then
-    {
-      printf 'agent:\\n  default_provider: "$providerId"\\n  default_model: "$model"\\n'
-      cat "\\\$CONFIG"
-    } > "\\\$CONFIG.tmp"
-    mv "\\\$CONFIG.tmp" "\\\$CONFIG"
-  else
-    if grep -q 'default_provider:' "\\\$CONFIG"; then
-      sed -i 's|^  default_provider:.*|  default_provider: "$providerId"|' "\\\$CONFIG"
-    else
-      sed -i '/^agent:/a\\  default_provider: "$providerId"' "\\\$CONFIG"
-    fi
-    if grep -q 'default_model:' "\\\$CONFIG"; then
-      sed -i 's|^  default_model:.*|  default_model: "$model"|' "\\\$CONFIG"
-    else
-      sed -i '/^  default_provider:/a\\  default_model: "$model"' "\\\$CONFIG"
-    fi
-  fi
-else
-  cat > "\\\$CONFIG" <<'YAML'
-${_defaultConfigYaml(providerId: providerId, model: model)}
-YAML
-fi
-
-cp "\\\$CONFIG" /root/.ironclaw/ironclaw.yaml
-""";
-    try {
-      await NativeBridge.runInProot('bash -c \'${_shellEscape(script)}\'', timeout: 15);
-      await _saveStoredModel(providerId: provider.id, model: model);
-    } catch (_) {
-      // Fallback: write .env directly
-      try {
-        final existing = await NativeBridge.readRootfsFile(_envFilePath) ?? '';
-        final lines = existing.split('\n').where((l) => !l.startsWith('$envVar=')).toList();
-        lines.add('$envVar=$apiKey');
-        await NativeBridge.writeRootfsFile(_envFilePath, lines.join('\n'));
-        await setActiveProviderConfig(provider: provider, model: model);
-      } catch (_) {}
+    final envValues = await _readEnvMap();
+    if (provider.requiresApiKey) {
+      final trimmedKey = apiKey.trim();
+      if (trimmedKey.isNotEmpty) {
+        envValues[envVar] = trimmedKey;
+      } else if ((envValues[envVar] ?? '').trim().isEmpty) {
+        throw StateError('${provider.name} API key is required');
+      }
+    } else {
+      envValues.remove(envVar);
     }
+    await _writeEnvMap(envValues);
+    await _ensureBashrcEnvSource();
+    await setActiveProviderConfig(provider: provider, model: model);
   }
 
   /// Remove a provider''s API key from the .env file.
@@ -303,16 +301,42 @@ cp "\\\$CONFIG" /root/.ironclaw/ironclaw.yaml
     required AiProvider provider,
   }) async {
     final envVar = provider.envVarName;
-    try {
-      await NativeBridge.runInProot(
-        "bash -c \"sed -i '/^${envVar}=/d' /root/.ironclaw/.env 2>/dev/null || true\"",
-        timeout: 10,
+    final envValues = await _readEnvMap();
+    envValues.remove(envVar);
+    await _writeEnvMap(envValues);
+
+    final metadata = await _readProviderMetadata();
+    metadata.remove(provider.id);
+    await _writeProviderMetadata(metadata);
+
+    final current = await readConfig();
+    final wasActive = current['activeProvider'] == provider.ironclawId;
+    if (!wasActive) {
+      return;
+    }
+
+    final remainingModels = await readStoredModels();
+    AiProvider? replacement;
+    for (final candidate in AiProvider.all) {
+      final hasKey = (envValues[candidate.envVarName] ?? '').trim().isNotEmpty;
+      final isConfigured = candidate.requiresApiKey
+          ? hasKey
+          : remainingModels.containsKey(candidate.id);
+      if (isConfigured) {
+        replacement = candidate;
+        break;
+      }
+    }
+
+    if (replacement != null) {
+      await setActiveProviderConfig(
+        provider: replacement,
+        model: remainingModels[replacement.id] ?? replacement.defaultModels.first,
       );
-    } catch (_) {}
-    try {
-      final metadata = await _readProviderMetadata();
-      metadata.remove(provider.id);
-      await _writeProviderMetadata(metadata);
-    } catch (_) {}
+      return;
+    }
+
+    final cleared = _clearActiveProviderConfig(await readConfigYaml());
+    await writeConfigYaml(cleared);
   }
 }

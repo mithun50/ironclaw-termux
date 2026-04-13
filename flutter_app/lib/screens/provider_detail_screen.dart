@@ -66,7 +66,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isEmpty && widget.provider.requiresApiKey) {
+    if (apiKey.isEmpty && widget.provider.requiresApiKey && !widget.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('API key cannot be empty')),
       );
@@ -250,7 +250,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                   : '(no API key needed)',
               helperText: widget.provider.requiresApiKey
                   ? (widget.isConfigured
-                      ? 'Key already set — enter a new key to replace it'
+                      ? 'Key already set — leave blank to keep it, or enter a new key to replace it'
                       : 'Stored as ${widget.provider.envVarName} — never leaves the device')
                   : 'Local provider — choose a model and activate it',
               suffixIcon: widget.provider.requiresApiKey
