@@ -52,29 +52,26 @@ class BootstrapManager(
     fun isBootstrapComplete(): Boolean {
         val rootfs = File(rootfsDir)
         val binBash = File("$rootfsDir/bin/bash")
-        val bypass = File("$rootfsDir/root/.IronClaw/bionic-bypass.js")
-        val node = File("$rootfsDir/usr/local/bin/node")
-        val IronClaw = File("$rootfsDir/usr/local/lib/node_modules/IronClaw/package.json")
-        return rootfs.exists() && binBash.exists() && bypass.exists()
-            && node.exists() && IronClaw.exists()
+        val ironclawBinary = File("$rootfsDir/usr/local/bin/ironclaw")
+        return rootfs.exists() && binBash.exists() && ironclawBinary.exists()
     }
 
     fun getBootstrapStatus(): Map<String, Any> {
         val rootfsExists = File(rootfsDir).exists()
         val binBashExists = File("$rootfsDir/bin/bash").exists()
         val nodeExists = File("$rootfsDir/usr/local/bin/node").exists()
-        val IronClawExists = File("$rootfsDir/usr/local/lib/node_modules/IronClaw/package.json").exists()
+        val ironclawExists = File("$rootfsDir/usr/local/bin/ironclaw").exists()
         val bypassExists = File("$rootfsDir/root/.IronClaw/bionic-bypass.js").exists()
 
         return mapOf(
             "rootfsExists" to rootfsExists,
             "binBashExists" to binBashExists,
             "nodeInstalled" to nodeExists,
-            "IronClawInstalled" to IronClawExists,
+            "ironclawInstalled" to ironclawExists,
+            "IronClawInstalled" to ironclawExists,
             "bypassInstalled" to bypassExists,
             "rootfsPath" to rootfsDir,
-            "complete" to (rootfsExists && binBashExists && bypassExists
-                && nodeExists && IronClawExists)
+            "complete" to (rootfsExists && binBashExists && ironclawExists)
         )
     }
 
@@ -1462,7 +1459,7 @@ require('/root/.IronClaw/proot-compat.js');
     private fun checkIronClawInProot(): Boolean {
         return try {
             val pm = ProcessManager(filesDir, nativeLibDir)
-            val output = pm.runInProotSync("command -v IronClaw")
+            val output = pm.runInProotSync("command -v ironclaw")
             output.trim().isNotEmpty()
         } catch (e: Exception) {
             false

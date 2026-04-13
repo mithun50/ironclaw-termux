@@ -18,6 +18,7 @@ import java.io.File
 import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.regex.Pattern
 
 class GatewayService : Service() {
     companion object {
@@ -73,6 +74,42 @@ class GatewayService : Service() {
     private var gatewayThread: Thread? = null
     private val lock = Object()
     @Volatile private var stopping = false
+
+    private fun shellEscape(value: String): String = value.replace("'", "'\\''")
+
+    private fun readConfiguredProviderAndModel(filesDir: String): Pair<String, String?> {
+        val configCandidates = listOf(
+            File(filesDir, "rootfs/ubuntu/root/ironclaw.yaml"),
+            File(filesDir, "rootfs/ubuntu/root/.ironclaw/ironclaw.yaml"),
+        )
+        val keyPattern = Pattern.compile("""(?m)^\s*(default_provider|default_model):\s*["']?([^"'#\n]+)""")
+
+        for (configFile in configCandidates) {
+            if (!configFile.exists()) continue
+
+            val text = try {
+                configFile.readText()
+            } catch (_: Exception) {
+                continue
+            }
+
+            var provider: String? = null
+            var model: String? = null
+            val matcher = keyPattern.matcher(text)
+            while (matcher.find()) {
+                when (matcher.group(1)) {
+                    "default_provider" -> provider = matcher.group(2)?.trim()
+                    "default_model" -> model = matcher.group(2)?.trim()
+                }
+            }
+
+            if (!provider.isNullOrBlank()) {
+                return provider to model?.takeIf { it.isNotBlank() }
+            }
+        }
+
+        return "anthropic" to null
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -143,6 +180,7 @@ class GatewayService : Service() {
                 val filesDir = applicationContext.filesDir.absolutePath
                 val nativeLibDir = applicationContext.applicationInfo.nativeLibraryDir
                 val pm = ProcessManager(filesDir, nativeLibDir)
+                val (provider, model) = readConfiguredProviderAndModel(filesDir)
 
                 // Recreate all directories (config, tmp, home, lib, proc/sys fakes)
                 // in case Android cleared them after an app update (#40).
@@ -201,15 +239,20 @@ class GatewayService : Service() {
                     // Source API keys from .env before running IronClaw so the
                     // configured provider (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
                     // is available in the process environment.
-                    // Also ensure ironclaw.yaml exists with a valid memory backend —
-                    // the binary's built-in "secure defaults" use "sqlite" which it
-                    // does not actually support (valid: encrypted_sqlite, file, none).
+                    // The selected provider/model are stored in ironclaw.yaml and must
+                    // be passed as CLI flags because `ironclaw run` defaults to
+                    // `anthropic` when no provider is supplied.
+                    val modelArg = model?.let { " --model '${shellEscape(it)}'" } ?: ""
+                    emitLog("[INFO] Launching provider '$provider'${model?.let { " with model '$it'" } ?: ""}")
                     gatewayProcess = pm.startProotProcess(
                         "[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; " +
+                        "if [ ! -f /root/ironclaw.yaml ] && [ -f /root/.ironclaw/ironclaw.yaml ]; then " +
+                        "cp /root/.ironclaw/ironclaw.yaml /root/ironclaw.yaml; " +
+                        "fi; " +
                         "if [ ! -f /root/ironclaw.yaml ]; then " +
                         "mkdir -p /root && printf 'memory:\\n  backend: \"encrypted_sqlite\"\\n' > /root/ironclaw.yaml; " +
                         "fi; " +
-                        "ironclaw run --ui"
+                        "ironclaw --config /root/ironclaw.yaml run --provider '${shellEscape(provider)}'$modelArg --ui"
                     )
                 }
                 updateNotificationRunning()

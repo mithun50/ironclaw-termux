@@ -13,6 +13,7 @@ class ProvidersScreen extends StatefulWidget {
 }
 
 class _ProvidersScreenState extends State<ProvidersScreen> {
+  String? _activeProvider;
   String? _activeModel;
   Map<String, dynamic> _providers = {};
   bool _loading = true;
@@ -27,6 +28,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     final config = await ProviderConfigService.readConfig();
     if (mounted) {
       setState(() {
+        _activeProvider = config['activeProvider'] as String?;
         _activeModel = config['activeModel'] as String?;
         _providers = config['providers'] as Map<String, dynamic>? ?? {};
         _loading = false;
@@ -36,12 +38,13 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
 
   Future<void> _openProvider(AiProvider provider) async {
     final isConfigured = _providers.containsKey(provider.id);
+    final existingModel = (_providers[provider.id] as Map<String, dynamic>?)?['model'] as String?;
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ProviderDetailScreen(
           provider: provider,
           isConfigured: isConfigured,
-          existingModel: _activeModel,
+          existingModel: existingModel ?? (_activeProvider == provider.ironclawId ? _activeModel : null),
         ),
       ),
     );
@@ -53,7 +56,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   String _statusLabel(AiProvider provider) {
     final isConfigured = _providers.containsKey(provider.id);
     if (!isConfigured) return '';
-    // Check if the active model belongs to this provider
+    if (_activeProvider == provider.ironclawId) return 'Active';
     if (_activeModel != null) {
       final isActive = provider.defaultModels.any((m) => _activeModel!.contains(m)) ||
           _activeModel!.contains(provider.id);
@@ -137,6 +140,8 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   Widget _buildProviderCard(ThemeData theme, AiProvider provider, bool isDark) {
     final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
     final status = _statusLabel(provider);
+    final providerData = _providers[provider.id] as Map<String, dynamic>?;
+    final configuredModel = providerData?['model'] as String?;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -198,7 +203,9 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      provider.description,
+                      configuredModel != null && configuredModel.isNotEmpty
+                          ? '${provider.description}\nModel: $configuredModel'
+                          : provider.description,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

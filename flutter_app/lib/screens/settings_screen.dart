@@ -9,6 +9,7 @@ import '../constants.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/provider_config_service.dart';
 import '../services/update_service.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
@@ -353,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _exportSnapshot() async {
     try {
-      final ironclawYaml = await NativeBridge.readRootfsFile('root/.ironclaw/ironclaw.yaml');
+      final ironclawYaml = await ProviderConfigService.readConfigYaml();
       final snapshot = {
         'version': AppConstants.version,
         'timestamp': DateTime.now().toIso8601String(),
@@ -402,7 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Restore ironclaw.yaml into rootfs
       final ironclawConfig = snapshot['ironclawConfig'] as String?;
       if (ironclawConfig != null) {
-        await NativeBridge.writeRootfsFile('root/.ironclaw/ironclaw.yaml', ironclawConfig);
+        await ProviderConfigService.writeConfigYaml(ironclawConfig);
       }
 
       // Restore preferences

@@ -66,7 +66,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
   Future<void> _save() async {
     final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isEmpty) {
+    if (apiKey.isEmpty && widget.provider.requiresApiKey) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('API key cannot be empty')),
       );
@@ -241,18 +241,24 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _apiKeyController,
-            obscureText: _obscureKey,
+            obscureText: widget.provider.requiresApiKey && _obscureKey,
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              hintText: widget.provider.apiKeyHint,
-              helperText: widget.isConfigured
-                  ? 'Key already set — enter a new key to replace it'
-                  : 'Stored as ${widget.provider.envVarName} — never leaves the device',
-              suffixIcon: IconButton(
-                icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscureKey = !_obscureKey),
-              ),
+              hintText: widget.provider.requiresApiKey
+                  ? widget.provider.apiKeyHint
+                  : '(no API key needed)',
+              helperText: widget.provider.requiresApiKey
+                  ? (widget.isConfigured
+                      ? 'Key already set — enter a new key to replace it'
+                      : 'Stored as ${widget.provider.envVarName} — never leaves the device')
+                  : 'Local provider — choose a model and activate it',
+              suffixIcon: widget.provider.requiresApiKey
+                  ? IconButton(
+                      icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _obscureKey = !_obscureKey),
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 24),

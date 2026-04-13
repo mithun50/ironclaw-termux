@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
+import '../services/provider_config_service.dart';
 import 'setup_wizard_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -86,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
               await downloadDir.create(recursive: true);
             }
             final snapshotPath = '$sdcard/Download/ironclaw-snapshot-$oldVersion.json';
-            final ironclawYaml = await NativeBridge.readRootfsFile('root/.ironclaw/ironclaw.yaml');
+            final ironclawYaml = await ProviderConfigService.readConfigYaml();
             final snapshot = {
               'version': oldVersion,
               'timestamp': DateTime.now().toIso8601String(),
