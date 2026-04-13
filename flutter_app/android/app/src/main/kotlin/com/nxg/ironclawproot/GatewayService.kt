@@ -245,15 +245,19 @@ class GatewayService : Service() {
                     // `anthropic` when no provider is supplied.
                     val modelArg = model?.let { " --model '${shellEscape(it)}'" } ?: ""
                     emitLog("[INFO] Launching provider '$provider'${model?.let { " with model '$it'" } ?: ""}")
+                    // Build the TOML config content to always write fresh (avoids stale YAML on disk).
+                    val tomlConfig = "[agent]\\ndefault_provider = \\\"${shellEscape(provider)}\\\"\\n" +
+                        (model?.let { "default_model = \\\"${shellEscape(it)}\\\"\\n" } ?: "") +
+                        "max_turns = 100\\ntool_timeout_secs = 30\\n\\n" +
+                        "[memory]\\nbackend = \\\"encrypted_sqlite\\\"\\n\\n" +
+                        "[ui]\\nenabled = true\\nbind_address = \\\"127.0.0.1\\\"\\nport = 3000\\ntheme = \\\"dark\\\"\\n\\n" +
+                        "[audit]\\nenabled = true\\npath = \\\"~/.ironclaw/audit.log\\\"\\n"
                     gatewayProcess = pm.startProotProcess(
-                        // set -a exports all vars set while it's active, so IronClaw child process inherits API keys.
+                        // set -a auto-exports all vars so IronClaw child process inherits API keys.
                         "set -a; [ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; set +a; " +
-                        "if [ ! -f /root/ironclaw.yaml ] && [ -f /root/.ironclaw/ironclaw.yaml ]; then " +
-                        "cp /root/.ironclaw/ironclaw.yaml /root/ironclaw.yaml; " +
-                        "fi; " +
-                        "if [ ! -f /root/ironclaw.yaml ]; then " +
-                        "mkdir -p /root && printf '[agent]\\ndefault_provider = \"anthropic\"\\n\\n[memory]\\nbackend = \"encrypted_sqlite\"\\n' > /root/ironclaw.yaml; " +
-                        "fi; " +
+                        // Always rewrite ironclaw.yaml as valid TOML before launch.
+                        "mkdir -p /root && printf '$tomlConfig' > /root/ironclaw.yaml; " +
+                        "cp /root/ironclaw.yaml /root/.ironclaw/ironclaw.yaml 2>/dev/null || true; " +
                         "ironclaw --config /root/ironclaw.yaml run --provider '${shellEscape(provider)}'$modelArg --ui"
                     )
                 }

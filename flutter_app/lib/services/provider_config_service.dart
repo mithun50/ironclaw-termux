@@ -234,12 +234,34 @@ path = "~/.ironclaw/audit.log"
     };
   }
 
+  static bool _looksLikeYaml(String content) =>
+      RegExp(r'(?m)^(agent|memory|ui|permissions|sandbox|audit|guardian)\s*:\s*$').hasMatch(content);
+
   static Future<String?> readConfigYaml() async {
-    final primary = await NativeBridge.readRootfsFile(configPath);
-    if (primary != null && primary.trim().isNotEmpty) {
-      return primary;
+    for (final path in [configPath, legacyConfigPath]) {
+      final raw = await NativeBridge.readRootfsFile(path);
+      if (raw == null || raw.trim().isEmpty) continue;
+      // Migrate old YAML configs to TOML on-the-fly.
+      if (_looksLikeYaml(raw)) {
+        // Extract whatever provider/model was set in the YAML, rewrite as TOML.
+        String? extract(String key) {
+          final m = RegExp(r'^\s*' + key + r':\s*["\x27]?([^"' + "'" + r'\n]+)["\x27]?',
+              multiLine: true).firstMatch(raw);
+          return m?.group(1)?.trim();
+        }
+        final provider = extract('default_provider');
+        final model = extract('default_model');
+        if (provider != null) {
+          final toml = _defaultConfigYaml(providerId: provider, model: model ?? '');
+          await writeConfigYaml(toml);
+          return toml;
+        }
+        // No provider in old YAML — just delete so fresh TOML gets created on save.
+        return null;
+      }
+      return raw;
     }
-    return NativeBridge.readRootfsFile(legacyConfigPath);
+    return null;
   }
 
   static Future<void> writeConfigYaml(String content) async {
