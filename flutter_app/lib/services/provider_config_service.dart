@@ -28,34 +28,33 @@ class ProviderConfigService {
   static const _envFilePath = 'root/.ironclaw/.env';
   static const _providerMetadataPath = 'root/.ironclaw/providers.json';
 
+  // IronClaw v0.2.0+ parses its config as TOML regardless of the .yaml extension.
   static String _defaultConfigYaml({
     required String providerId,
     required String model,
   }) {
-    return '''
-agent:
-  default_provider: "$providerId"
-  default_model: "$model"
-  max_turns: 100
-  tool_timeout_secs: 30
+    return '''[agent]
+default_provider = "$providerId"
+default_model = "$model"
+max_turns = 100
+tool_timeout_secs = 30
 
-memory:
-  backend: "encrypted_sqlite"
+[memory]
+backend = "encrypted_sqlite"
 
-ui:
-  enabled: true
-  bind_address: "127.0.0.1"
-  port: 3000
-  theme: "dark"
+[ui]
+enabled = true
+bind_address = "127.0.0.1"
+port = 3000
+theme = "dark"
 
-permissions:
-  system:
-    allow_shell: false
-    require_approval_for_high_risk: true
+[permissions.system]
+allow_shell = false
+require_approval_for_high_risk = true
 
-audit:
-  enabled: true
-  path: "~/.ironclaw/audit.log"
+[audit]
+enabled = true
+path = "~/.ironclaw/audit.log"
 ''';
   }
 
@@ -141,6 +140,7 @@ audit:
     await _writeProviderMetadata(metadata);
   }
 
+  // Upsert into TOML-format config. IronClaw v0.2.0+ uses TOML regardless of .yaml extension.
   static String _upsertConfigYaml(
     String? existingYaml, {
     required String providerId,
@@ -150,44 +150,38 @@ audit:
       return _defaultConfigYaml(providerId: providerId, model: model);
     }
 
-    var yaml = existingYaml;
-    if (!RegExp(r'(?m)^agent:\s*$').hasMatch(yaml)) {
-      return 'agent:\n'
-          '  default_provider: "$providerId"\n'
-          '  default_model: "$model"\n\n'
-          '$yaml';
+    var toml = existingYaml;
+
+    // If no [agent] section, prepend one.
+    if (!RegExp(r'(?m)^\[agent\]').hasMatch(toml)) {
+      return '[agent]\ndefault_provider = "$providerId"\ndefault_model = "$model"\n\n$toml';
     }
 
-    if (RegExp(r'(?m)^\s*default_provider:').hasMatch(yaml)) {
-      yaml = yaml.replaceFirst(
-        RegExp(r'(?m)^(\s*)default_provider:\s*.*$'),
-        r'$1default_provider: "' + providerId + '"',
+    if (RegExp(r'(?m)^\s*default_provider\s*=').hasMatch(toml)) {
+      toml = toml.replaceFirst(
+        RegExp(r'(?m)^(\s*)default_provider\s*=\s*.*$'),
+        'default_provider = "$providerId"',
       );
     } else {
-      yaml = yaml.replaceFirst(
-        RegExp(r'(?m)^agent:\s*$'),
-        'agent:\n  default_provider: "$providerId"',
+      toml = toml.replaceFirst(
+        RegExp(r'(?m)^\[agent\]'),
+        '[agent]\ndefault_provider = "$providerId"',
       );
     }
 
-    if (RegExp(r'(?m)^\s*default_model:').hasMatch(yaml)) {
-      yaml = yaml.replaceFirst(
-        RegExp(r'(?m)^(\s*)default_model:\s*.*$'),
-        r'$1default_model: "' + model + '"',
-      );
-    } else if (RegExp(r'(?m)^\s*default_provider:.*$').hasMatch(yaml)) {
-      yaml = yaml.replaceFirst(
-        RegExp(r'(?m)^(\s*default_provider:.*)$'),
-        r'$1\n  default_model: "' + model + '"',
+    if (RegExp(r'(?m)^\s*default_model\s*=').hasMatch(toml)) {
+      toml = toml.replaceFirst(
+        RegExp(r'(?m)^(\s*)default_model\s*=\s*.*$'),
+        'default_model = "$model"',
       );
     } else {
-      yaml = yaml.replaceFirst(
-        RegExp(r'(?m)^agent:\s*$'),
-        'agent:\n  default_model: "$model"',
+      toml = toml.replaceFirst(
+        RegExp(r'(?m)^(\s*default_provider\s*=\s*.*)$'),
+        'default_provider = "$providerId"\ndefault_model = "$model"',
       );
     }
 
-    return yaml;
+    return toml;
   }
 
   /// Read the current active provider/model and which providers have keys.
@@ -206,7 +200,8 @@ audit:
       final yaml = await readConfigYaml();
       if (yaml != null && yaml.isNotEmpty) {
         String? extract(String key) {
-          final match = RegExp(r'^\s*' + key + r':\s*["\x27]?([^"' + "'" + r'\n]+)["\x27]?',
+          // TOML format: key = "value"
+          final match = RegExp(r'^\s*' + key + r'''\s*=\s*["']?([^"'\n]+)["']?''',
               multiLine: true).firstMatch(yaml);
           return match?.group(1)?.trim();
         }
@@ -272,15 +267,16 @@ audit:
       return '';
     }
 
-    var yaml = existingYaml.replaceAll(
-      RegExp(r'(?m)^\s*default_provider:\s*.*\n?'),
+    // Remove TOML-format keys (key = "value")
+    var toml = existingYaml.replaceAll(
+      RegExp(r'(?m)^\s*default_provider\s*=\s*.*\n?'),
       '',
     );
-    yaml = yaml.replaceAll(
-      RegExp(r'(?m)^\s*default_model:\s*.*\n?'),
+    toml = toml.replaceAll(
+      RegExp(r'(?m)^\s*default_model\s*=\s*.*\n?'),
       '',
     );
-    return yaml.replaceAll(RegExp(r'\n{3,}'), '\n\n').trimRight();
+    return toml.replaceAll(RegExp(r'\n{3,}'), '\n\n').trimRight();
   }
 
   /// Save the provider API key as an environment variable and update

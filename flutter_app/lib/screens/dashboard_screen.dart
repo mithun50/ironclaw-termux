@@ -19,6 +19,7 @@ import 'security_screen.dart';
 import 'settings_screen.dart';
 import 'skills_screen.dart';
 import 'ssh_screen.dart';
+import 'audit_screen.dart';
 import 'terminal_screen.dart';
 import 'web_dashboard_screen.dart';
 
@@ -366,6 +367,9 @@ class _MoreTab extends StatelessWidget {
             _MoreItem('Logs', Icons.article_outlined, const Color(0xFF6366F1),
                 'Gateway output and errors',
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LogsScreen()))),
+            _MoreItem('Audit Log', Icons.security, const Color(0xFFEF4444),
+                'Security events and command history',
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuditScreen()))),
             _MoreItem('SSH', Icons.lock, const Color(0xFF8B5CF6),
                 'Remote terminal access',
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SshScreen()))),

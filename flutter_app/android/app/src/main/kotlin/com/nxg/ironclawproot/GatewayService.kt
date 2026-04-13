@@ -82,7 +82,8 @@ class GatewayService : Service() {
             File(filesDir, "rootfs/ubuntu/root/ironclaw.yaml"),
             File(filesDir, "rootfs/ubuntu/root/.ironclaw/ironclaw.yaml"),
         )
-        val keyPattern = Pattern.compile("""(?m)^\s*(default_provider|default_model):\s*["']?([^"'#\n]+)""")
+        // IronClaw v0.2.0+ uses TOML format: key = "value"
+        val keyPattern = Pattern.compile("""(?m)^\s*(default_provider|default_model)\s*=\s*["']?([^"'#\n]+)""")
 
         for (configFile in configCandidates) {
             if (!configFile.exists()) continue
@@ -245,12 +246,13 @@ class GatewayService : Service() {
                     val modelArg = model?.let { " --model '${shellEscape(it)}'" } ?: ""
                     emitLog("[INFO] Launching provider '$provider'${model?.let { " with model '$it'" } ?: ""}")
                     gatewayProcess = pm.startProotProcess(
-                        "[ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; " +
+                        // set -a exports all vars set while it's active, so IronClaw child process inherits API keys.
+                        "set -a; [ -f /root/.ironclaw/.env ] && . /root/.ironclaw/.env; set +a; " +
                         "if [ ! -f /root/ironclaw.yaml ] && [ -f /root/.ironclaw/ironclaw.yaml ]; then " +
                         "cp /root/.ironclaw/ironclaw.yaml /root/ironclaw.yaml; " +
                         "fi; " +
                         "if [ ! -f /root/ironclaw.yaml ]; then " +
-                        "mkdir -p /root && printf 'memory:\\n  backend: \"encrypted_sqlite\"\\n' > /root/ironclaw.yaml; " +
+                        "mkdir -p /root && printf '[agent]\\ndefault_provider = \"anthropic\"\\n\\n[memory]\\nbackend = \"encrypted_sqlite\"\\n' > /root/ironclaw.yaml; " +
                         "fi; " +
                         "ironclaw --config /root/ironclaw.yaml run --provider '${shellEscape(provider)}'$modelArg --ui"
                     )
